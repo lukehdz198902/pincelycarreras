@@ -1,0 +1,50 @@
+name: pincel_y_carreras
+description: "Pincel & Carreras: juego infantil offline de pintura libre y carreras sencillo para ninos de 3 a 8 anos."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Motor de juego 2D.
+  flame: ^1.38.2
+  # Audio del juego (música de fondo y efectos de sonido).
+  flame_audio: ^2.12.2
+
+  # Gestión de estado.
+  provider: ^6.1.5+1
+
+  # Persistencia local del progreso del niño.
+  shared_preferences: ^2.5.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  flame_test: ^2.3.1
+
+flutter:
+  uses-material-design: true
+
+  # OJO: Flutter solo incluye los ficheros que estan DIRECTAMENTE en la
+  # carpeta declarada, no sus subdirectorios. Hay que listar cada carpeta.
+  assets:
+    - assets/images/cars/
+    - assets/images/tracks/
+    - assets/images/items/
+    - assets/images/canvas/
+    - assets/images/stickers/
+    - assets/images/decals/
+    - assets/images/characters/
+    - assets/images/ui/
+    - assets/images/palette/
+    - assets/audio/music/
+    - assets/audio/sfx/

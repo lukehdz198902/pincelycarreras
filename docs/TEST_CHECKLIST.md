@@ -1,0 +1,228 @@
+# Checklist de pruebas — Pincel & Carreras
+
+Este documento recoge **lo que se ha ejecutado de verdad**, no lo planificado.
+Cada casilla está marcada con la evidencia que la respalda.
+
+- **Entorno de verificación:** Windows 11 · Flutter 3.44.4 · Dart 3.12.2
+- **Última ejecución:** 06/11/2026 (ronda 6: logotipo e iconos de la app)
+- **Versión del juego:** 1.0.0+1
+
+---
+
+## 1. Verificación automática (obligatoria)
+
+| # | Comprobación | Comando | Resultado |
+|---|---|---|---|
+| V1 | Análisis estático sin errores ni avisos | `flutter analyze` | ✅ **No issues found!** |
+| V2 | Suite de tests completa | `flutter test` | ✅ **137/137 · All tests passed!** |
+| V3 | Compilación Android de depuración | `flutter build apk --debug` | ✅ APK generado en `build/app/outputs/flutter-apk/app-debug.apk` |
+| V4 | Los 87 assets entran en el APK | inspección del APK | ✅ 77 PNG + 10 WAV empaquetados |
+| V5 | Iconos de la app en el APK | inspección del APK | ✅ `ic_launcher` (5 densidades) + `ic_launcher_round` + `ic_launcher_foreground` + `ic_launcher_monochrome` + `ic_launcher.xml` (adaptativo) + `launch_logo` |
+| V6 | Regeneración de los PNG | `cd tool/asset_studio && flutter test` | ✅ 17 tests, assets reescritos |
+| V7 | Regeneración de los iconos | `cd tool/asset_studio && flutter test test/generate_app_icons_test.dart` | ✅ 6 tests, iconos de Android, iOS y web reescritos |
+| V5 | Regeneración de los PNG | `cd tool/asset_studio && flutter test` | ✅ 11 tests, assets reescritos |
+| V6 | Regeneración del audio | `dart run tool/generate_audio.dart` | ✅ 2 músicas + 7 SFX sintetizados |
+
+### Detalle de los tests (V2)
+
+| Fichero | Casos | Qué cubre |
+|---|---|---|
+| `test/game/car_test.dart` | 6 | Carril inicial, giro izquierda/derecha, límites de carril, búfer de un giro, aturdimiento de 1 s tras choque |
+| `test/game/flood_fill_test.dart` | 5 | Zona rellenable, relleno de la región interior, separación interior/exterior, no rellena el contorno, mismo tramo para el mismo punto |
+| `test/game/track_generator_test.dart` | 4 | Nunca bloquea los 3 carriles, la estrella no cae en un carril bloqueado, carriles en rango, determinismo con semilla |
+| `test/models/progress_test.dart` | 4 | Estado inicial, `copyWith`, ida y vuelta por JSON, JSON vacío |
+| `test/models/levels_test.dart` | 13 | 12 mundos con ids únicos, ambientes únicos, pistas válidas, velocidad creciente, **duración ≥ 60 s**, encadenado del siguiente, desbloqueo progresivo, no completar un mundo bloqueado, no contar dos veces, persistencia, desbloqueo de vehículos con estrellas, catálogo de vehículos (6 tipos, tamaños) |
+| `test/game/race_timing_test.dart` | 7 | Velocidad **constante** dentro de un mundo, escalado por mundo, distancia creciente, la distancia de los tramos cubre el tiempo objetivo, **todos los mundos duran ≥ 1 minuto**, tramo con el mismo tiempo, **el vehículo despega en un rasante y no en terreno plano** |
+| `test/game/climb_terrain_test.dart` | 7 | Terreno largo con colinas, avance hacia la derecha, vueltas de 360° (el vehículo queda del revés), posición y ángulo continuos, extremos fuera de rango, trazado reproducible |
+| `test/ui/coloring_screen_test.dart` | 3 | Carga la lámina inicial, **al cambiar de lámina se dibuja la nueva y no queda en blanco** (regresión), el relleno usa la lámina nueva |
+| `test/services/progress_service_test.dart` | 7 | Guardado/recuperación de progreso y de dibujos, borrado de dibujo, estrellas aditivas, desbloqueo de coches, no seleccionar un coche bloqueado, colores base siempre disponibles |
+| `test/ui/menu_screen_test.dart` | 8 | 5 secciones ≥ 60 dp, navegación a pintura / mapa de mundos / subidas / taller / pegatinas, sin desbordes en horizontal y en 320 dp |
+| `test/ui/climb_and_studio_test.dart` | 11 | Modo subidas: botones de acelerar y frenar (≥ 60 dp) que aceleran y frenan al mantenerlos pulsados, **el vehículo recorre el terreno**, **el HUD muestra metros y velocidad**, sin desbordes; taller: calcas, colores y personajes, y que la elección se guarde |
+| `test/ui/level_select_screen_test.dart` | 7 | 12 tarjetas numeradas, 11 candados al empezar, apertura del siguiente mundo, mundo disponible abre carreras, mundo bloqueado **no** abre carreras, botón de vehículo abre el garaje, sin desbordes |
+| `test/ui/garage_screen_test.dart` | 6 | Los 10 vehículos en pantalla, candados en los bloqueados, elegir un vehículo libre, **no** elegir uno bloqueado, con estrellas se desbloquean todos, sin desbordes en 320 dp |
+| `test/ui/splash_screen_test.dart` | 4 | Título visible, arranque automático a los 2,4 s, salto con un toque, sin desbordes |
+| `test/ui/racing_screen_test.dart` | 12 | Arranque directo en juego, **juego a pantalla completa**, **origen del mundo en la esquina**, áreas táctiles, **controles visibles de dirección**, la flecha izquierda mueve el coche, pausa, **botón de vehículo abre el garaje**, contador visible, pista y ambiente del mundo, **la carrera tiene final**, **al salir se detienen el juego y la música**, sin desbordes |
+| `test/ui/small_screen_test.dart` | 9 | Las 9 pantallas sin desbordes en un móvil de 320 × 640 |
+| `test/ui/screen_capture_test.dart` | 13 | Las 9 pantallas se dibujan sin excepciones y se exportan a PNG (tamaño normal y tamaño estrecho) |
+
+---
+
+## 2. Verificación visual
+
+### 2.1 Capturas automáticas (test de widget)
+
+`test/ui/screen_capture_test.dart` renderiza cada pantalla y guarda el PNG en
+`build/screenshots/`. No compara contra goldens (sería frágil entre máquinas):
+sirve como prueba de humo visual y como artefacto de revisión.
+
+| Captura | Comprobado |
+|---|---|
+| `inicio.png` | Pantalla de inicio: logo con pincel y coche, título en dos líneas, pista con coche |
+| `menu.png` | Fondo crema con blobs en movimiento, 3 tarjetas grandes con degradado (pintar / carreras / pegatinas), contador de estrellas y botón de sonido |
+| `niveles.png` | Mapa con 10 tarjetas: número en círculo, pista de fondo, nombre y ambiente; candado en las bloqueadas y botón de play en la siguiente |
+| `pintura.png` | Lámina a tamaño completo, barra superior, barra de herramientas abajo con el pincel seleccionado y los 3 grosores |
+| `carreras.png` | El juego ocupa la pantalla completa, barra superior alineada, flechas de dirección visibles, sin desbordes |
+| `pegatinas.png` | Rejilla de 6 pegatinas con candado en las bloqueadas |
+| `menu-320.png` | En móvil de 320 dp el título se encoge y el contador no se desborda; las 3 tarjetas siguen siendo grandes |
+| `pintura-320.png` | En móvil de 320 dp los grosores de pincel pasan a una segunda fila y nada se corta |
+| `carreras-320.png` | En móvil de 320 dp la barra superior compacta (insignia circular del nivel, miniaturas y contador) cabe entera |
+| `pegatinas-320.png` | La rejilla de pegatinas se adapta al ancho de 320 dp |
+
+> En los tests de widget las imágenes (`Image.asset`) **no se pintan** (limitación
+> conocida de `flutter_test`), por eso las capturas muestran los contenedores
+> vacíos donde iría el sprite. La comprobación real de sprites se hace en §2.2.
+
+### 2.2 Verificación en navegador real (Flame + assets reales)
+
+Ejecutado con `flutter run -d web-server` y captura del canvas por JS.
+
+| Comprobación | Resultado |
+|---|---|
+| Menú | ✅ 3 botones circulares grandes con icono, título y contador de estrellas |
+| Estudio de pintura | ✅ Relleno por región (bote) respetando el contorno exacto del coche |
+| Persistencia | ✅ 4 estrellas visibles tras recargar la página (`shared_preferences` → `localStorage`) |
+| Pantalla de carreras | ✅ Pista, asfalto, bordillo, meta, estrellas y obstáculos renderizados con los sprites reales, **pista centrada y coche en su carril** (captura `web_carreras_fix2.png`) |
+| Consola del navegador | ✅ Sin errores ni excepciones |
+
+> **Limitación del entorno:** al terminar la sesión, el navegador de la
+> herramienta dejó de crear el canvas de Flutter (la ventana perdió el foco y
+> `document.hasFocus()` devolvió `false`). Se comprobó que **no es un fallo del
+> juego**: una aplicación mínima que antes renderizaba bien dejó de hacerlo
+> igual. Por eso las correcciones posteriores (modo compacto de la barra
+> superior, título del menú adaptable y segunda fila de grosores de pincel)
+> están validadas por **tests de widget**, pero **no** por captura del
+> navegador. Queda pendiente una revisión visual en un navegador real.
+
+---
+
+## 3. Bugs encontrados y corregidos durante la verificación
+
+| # | Bug | Gravedad | Corrección | Test de regresión |
+|---|---|---|---|---|
+| B1 | El `Stack` de la pantalla de carreras se dimensionaba al hijo **no posicionado** más grande (la barra superior, 80 px): el juego se dibujaba en una franja de 80 px y los paneles se desbordaban 52 px | 🔴 Crítico | Todos los hijos del `Stack` van posicionados (`Positioned` / `Positioned.fill`) | `el juego ocupa la pantalla completa` |
+| B2 | Flame 1.38 ancla el *viewfinder* en el **centro** del viewport: el origen del mundo aparecía en el centro de la pantalla, la pista quedaba desplazada media pantalla y **el coche se salía de la pantalla** | 🔴 Crítico | `camera.viewfinder.anchor = Anchor.topLeft` | `el origen del mundo es la esquina superior izquierda` |
+| B3 | El `UnlockOverlay` no estaba posicionado en el `Stack` del menú: al mostrarse un desbloqueo (240×240) **cambiaba el tamaño del `Stack`** y saltaba el layout | 🟡 Medio | `Positioned.fill` | — |
+| B4 | Flame pinta **negro puro** por defecto (`Game.backgroundColor()`): destello negro al cargar las carreras | 🟢 Bajo | `backgroundColor()` devuelve `AppPalette.ink` | — |
+| B5 | El botón de "Seguir" de la pausa no recibía el toque (el overlay no cubría la pantalla) | 🟡 Medio | Consecuencia de B1 | `el boton de pausa muestra y oculta la pausa` |
+| B6 | Miniaturas de coche y pista sin `Semantics(button: true)` (accesibilidad) | 🟢 Bajo | Añadido `Semantics` | — |
+| B7 | Código muerto: `TrackMiniature` y `kStickerBookButtonSize` sin usar, `_TrackThumbnail` duplicado | 🟢 Bajo | Miniaturas unificadas en `lib/ui/widgets/thumbnails.dart` | — |
+| B8 | La barra superior de **carreras** se desbordaba 64 px en un móvil de 320 dp (5 controles de 60 px + contador) | 🟠 Alto | Modo compacto: miniaturas de 46 dp y contador solo con icono | `small_screen_test.dart` |
+| B9 | El **título del menú** se desbordaba 145 px en un móvil de 320 dp | 🟠 Alto | El título va en `Expanded` + `FittedBox(scaleDown)`: se encoge en vez de desbordar | `small_screen_test.dart` |
+| B10 | La **barra de herramientas** del estudio de pintura se desbordaba 136 px (3 herramientas + 3 grosores en una fila) | 🟠 Alto | Los grosores pasan a una segunda fila cuando no caben | `small_screen_test.dart` |
+| B11 | `main()` **esperaba** a `audioService.initialize()`: en web el `AudioContext` queda suspendido hasta el primer gesto del usuario y la promesa puede no resolverse nunca → riesgo de **que la app no arranque** | 🟠 Alto | El audio se inicializa en segundo plano (`unawaited`) | Criterio A9 |
+| B12 | `main()` **esperaba** a `SystemChrome.setPreferredOrientations()`: en web el motor lanza una excepción al no existir la API de bloqueo de pantalla y la promesa nunca resuelve → riesgo de **que la app no arranque** | 🟠 Alto | En web no se pide el bloqueo de orientación; en móvil es no bloqueante y con `catchError` | Criterio A9 |
+| B13 | **Al salir de una carrera el juego seguía corriendo en segundo plano**: la música no se callaba y las colisiones seguían ocurriendo. Nadie paraba el motor de Flame ni la pista de audio al desmontar la pantalla | 🔴 Crítico | `RacingGame.halt()` (marca `_halted` y para el motor), `dispose()` de `RacingScreen` (detiene juego y música), `WidgetsBindingObserver` para pausar en segundo plano y pausa manual que pausa motor **y** música. La música de la pintura se detiene igual | `al salir se detienen el juego y la musica` |
+| B14 | La barra superior de carreras se desbordaba **3,9 px** en 320 dp al añadir la insignia de nivel | 🟡 Medio | La insignia pasa a ser un círculo de 44 dp con el número en móvil estrecho | `la pantalla no desborda en un movil estrecho` |
+| B15 | Las láminas nuevas (coche, animales) tenían **elementos superpuestos** (mariposa sobre el gato, abeja sobre el perro, árbol sobre el conejo) y el número del dorsal salía como un **cuadro negro** (sin fuente en el generador) | 🟡 Medio | Composición en rejilla sin solapes y **ningún texto** en las láminas (dorsal con estrella) | Revisión visual de los PNG |
+| B16 | El generador de assets perdía bloques de código al reescribir el fichero (splice por líneas en PowerShell) y dejaba llaves sueltas al principio del archivo | 🟡 Medio | Fichero reparado y verificado con `flutter test` del `asset_studio` | V5 |
+| B17 | **Al cambiar de lámina en el estudio de pintura la pantalla se quedaba en blanco**: el pintor del lienzo (`PaintCanvasPainter`) se creaba una sola vez en `initState` y **nunca actualizaba la imagen**, de modo que seguía pintando la lámina anterior, que además se había liberado ya. El relleno por color usaba el raster de la lámina vieja | 🔴 Crítico | `PaintCanvasPainter.updatePage()` actualiza imagen y tamaño, `didUpdateWidget` reconstruye el raster y `ColoringScreen` libera la imagen anterior **después** del frame | `coloring_screen_test.dart` |
+| B18 | La fila de controles del modo "Subidas" se desbordaba en un móvil de 320 dp (dos botones de 96 dp + un distintivo central) | 🟡 Medio | Se quitó el distintivo central de la fila | `climb_and_studio_test.dart` |
+| B19 | El menú con 5 secciones desbordaba en un móvil de 320 dp | 🟠 Alto | `MenuTile` ganó una versión `compact` (icono y etiqueta menores) y el menú vertical la usa | `menu_screen_test.dart` + `small_screen_test.dart` |
+| B20 | El terreno de las subidas se buscaba por coordenada X, que **no es monótona** dentro de un loop de 360°: el vehículo saltaba de sitio al dar la vuelta | 🔴 Crítico | El terreno se indexa por **longitud de arco** (siempre creciente) y la búsqueda binaria usa esa tabla | `climb_terrain_test.dart` |
+| B21 | Los archivos editados con PowerShell `Get-Content`/`Set-Content` quedaban **doblemente codificados** (acentos rotos: "Ã±", "Â¡") | 🟡 Medio | Detección con un barrido de todo el árbol y reparación con decodificación CP-1252 | Barrido automático de `lib/`, `tool/`, `docs/` y `test/` |
+| B22 | El modo "Subidas" **no era jugable**: el vehículo estaba pegado al terreno (sin peso, sin saltos), los gráficos eran dos colinas planas y un relleno de color, y la cámara saltaba de sitio | 🔴 Crítico | Motor reescrito: el vehículo tiene peso y **despega** cuando el terreno cae más de lo que la gravedad permite, vuela y **aterriza aplastando la suspensión** (con polvo y temblor de cámara); ruedas que giran, parallax de 3 capas de colinas con degradado de cielo, sol, nubes y terreno con superficie iluminada; cámara con suavizado; HUD en vivo de metros y velocidad; zumbido de motor | `race_timing_test.dart` + `climb_and_studio_test.dart` |
+| B23 | En el modo "Subidas", pulsar a la vez acelerar y frenar **aceleraba** (ganaba el acelerador) | 🟡 Medio | Ahora el **freno manda**: si se pulsan los dos, el vehículo frena | `climb_and_studio_test.dart` |
+| B24 | **Al pintar, el trazo salía en otro sitio**: la conversión de coordenadas del lienzo usaba el tamaño del `LayoutBuilder` (toda la pantalla) en vez del cuadro real del dibujo | 🔴 Crítico | `_toPage` usa el `RenderBox` real del `CustomPaint` (con `GlobalKey`) | `coloring_screen_test.dart` (`el trazo empieza justo donde toca el nino`) |
+| B25 | En las carreras los **obstáculos se empalmaban** (filas cada 1,15 s) y era imposible esquivarlos | 🔴 Crítico | Las filas van ahora cada **2,2 s** (el doble de espacio) y la mayoría bloquean un solo carril | `racing_screen_test.dart` |
+| B26 | La **meta se veía pixeleada** (PNG estirado a todo el ancho de la carretera) y el coche pasaba **por debajo** | 🟠 Alto | La meta y el banderín se **dibujan en el juego** (nítidos a cualquier tamaño) y con prioridad `-1`, por debajo del coche | `racing_screen_test.dart` |
+| B27 | En las subidas el coche **se metía dentro de la montaña** (su origen era el centro, no el apoyo de las ruedas) | 🔴 Crítico | El origen del vehículo es el **punto de apoyo** de las ruedas; además tiene **dos ruedas** que giran | `climb_and_studio_test.dart` |
+| B28 | En el taller las calcas se veían **todas en blanco** (están designed para tintarse) | 🟡 Medio | El selector las muestra **tintadas con el color elegido** | `climb_and_studio_test.dart` |
+| B29 | No había forma de saber **para qué sirven las pegatinas** ni cómo se usa la app | 🟡 Medio | Botón **?** de ayuda en el menú y en las secciones, y las pegatinas son **trofeos** que dicen cuántas estrellas necesitan | — |
+| B30 | La app **no tenía icono propio**: en el menú de aplicaciones de Android salía el icono genérico de Flutter, y el nombre visible era `pincel_y_carreras` | 🟠 Alto | Logotipo propio generado por código (`app_logo.dart`) para Android (clásico, redondo y **adaptativo** con versión monocroma), iOS (los 15 tamaños) y web (favicon + manifest). Nombre visible **"Pincel & Carreras"** | `asset_studio/test/generate_app_icons_test.dart` + inspección del APK |
+
+---
+
+## 4. Assets
+
+| Comprobación | Resultado |
+|---|---|
+| Gráficos generados por código | ✅ 55 PNG en `assets/images/` (10 vehículos, 17 pistas/mobiliario, 9 láminas, 9 iconos, 6 pegatinas, 1 estrella, 1 paleta) |
+| Audio generado por síntesis | ✅ 9 WAV en `assets/audio/` (2 músicas en bucle + 7 SFX) |
+| Formato de audio | ✅ WAV PCM 16 bits mono 22050 Hz (soportado por `audioplayers`) |
+| Revisión visual de cada PNG | ✅ Todos los sprites revisados a mano (flecha "atrás" a la izquierda, contornos limpios, **láminas rehechas en rejilla sin solapes**) |
+| Revisión de la onda de audio | ✅ 9 formas de onda exportadas a `build/audio_preview/*.png` con pico y RMS sanos |
+| Empaquetado | ✅ Las subcarpetas de assets están listadas **una a una** en `pubspec.yaml` (Flutter no las incluye recursivamente) |
+| Regeneración reproducible | ✅ `cd tool/asset_studio && flutter test` y `dart run tool/generate_audio.dart` |
+
+---
+
+## 5. Reglas de negocio (comprobación estática + tests)
+
+| Regla | Verificación | Resultado |
+|---|---|---|
+| Sin red | `grep` de `http` / `dart:io` / `socket` / `Uri.parse` en `lib/` | ✅ 0 coincidencias |
+| Sin anuncios, compras ni enlaces | Revisión de `pubspec.yaml` | ✅ Ninguna dependencia de red, publicidad ni analítica |
+| Persistencia solo local | `shared_preferences` es la única fuente | ✅ |
+| Sin texto que exija leer | Menú con 3 iconos; pantallas con pictogramas | ✅ |
+| Botones ≥ 60 dp | Test que recorre los `GestureDetector` de las barras | ✅ (60–152 dp) |
+| Cero `print` en producción | `grep` de `print(` en `lib/` | ✅ 0 coincidencias |
+| `lib/game/` sin `material.dart` | `grep` de `material.dart` en `lib/game/` | ✅ Solo `painting.dart` / `widgets.dart` |
+| Sin fracaso / sin derrota | `Car.stun(1 s)` y el juego continúa | ✅ Test `tras un choque el coche queda inmovilizado un segundo` |
+
+---
+
+## 6. Criterios de aceptación del GDD (§11)
+
+| # | Criterio | Estado | Evidencia |
+|---|---|---|---|
+| A1 | Desde el menú se llega a pintura en 1 toque y a carreras en 2 (menú → mapa → nivel) | ✅ | `menu_screen_test.dart` + `level_select_screen_test.dart` |
+| A2 | El toque izq./der. cambia de carril en ≤ 250 ms | ✅ | `car_test.dart` (transición de 0,3 s) |
+| A3 | Un choque no termina la partida ni resta estrellas | ✅ | `car_test.dart` + `progress_test.dart` (las estrellas solo suman) |
+| A4 | Pintar genera partículas y reproduce `pop` | ✅ | `paint_canvas.dart` + captura de `pintura.png` |
+| A5 | Las estrellas persisten tras reiniciar la app | ✅ | `progress_service_test.dart` + verificación en navegador (4 estrellas tras recargar) |
+| A6 | No existe ninguna llamada de red en `lib/` | ✅ | `grep` sin coincidencias |
+| A7 | `flutter analyze` sin issues y `flutter test` en verde | ✅ | V1 + V2 |
+| A8 | Todos los botones ≥ 60 dp | ✅ | Tests de `menu_screen_test.dart`, `racing_screen_test.dart` y `level_select_screen_test.dart` |
+| A9 | Arranque sin esperas bloqueantes > 500 ms | ✅ | `main.dart` solo espera las preferencias; audio y orientación se preparan en segundo plano |
+| A10 | Funciona en vertical y horizontal sin overflow | ✅ | Tests de desbordes en horizontal + `LayoutBuilder` con menú vertical/horizontal |
+| A11 | Al salir de una carrera se detienen el motor del juego y la música | ✅ | `racing_screen_test.dart` (`al salir se detienen el juego y la musica`) |
+| A12 | Hay 12 mundos con ambientes distintos y desbloqueo progresivo | ✅ | `levels_test.dart` + `level_select_screen_test.dart` |
+| A13 | Las flechas de dirección están visibles en la pantalla de carreras | ✅ | `racing_screen_test.dart` (`muestra controles visibles...`) |
+| A14 | Cada carrera dura **al menos un minuto** y **tiene final** (meta) | ✅ | `race_timing_test.dart` + `racing_screen_test.dart` (`la carrera tiene final`) |
+| A15 | El garaje ofrece coches, moto, camión, bus, tractor y furgoneta | ✅ | `garage_screen_test.dart` + `levels_test.dart` |
+
+---
+
+## 7. Pendiente (requiere hardware o macOS)
+
+Estos puntos **no se han podido verificar** en este entorno. Quedan marcados
+como pendientes, no como hechos.
+
+- [ ] **Dispositivo Android real**: instalar el APK, comprobar rendimiento real
+      (frame rate) con el DEVICE de gama baja de referencia.
+- [ ] **iOS**: `flutter build ios` requiere **macOS con Xcode**. El proyecto
+      `ios/` existe y está generado, pero no se ha compilado ni probado.
+- [ ] **Audio en dispositivo real**: los WAV se han validado por forma de onda,
+      pero falta comprobar volumen, mezcla con la música y comportamiento con
+      el móvil en silencio.
+- [ ] **Vibración háptica** (`HapticFeedback`): solo verificable en hardware.
+- [ ] **Modo avión real**: confirmar que el juego arranca y suena sin red.
+- [ ] **Revisión visual en navegador real** de la ronda actual (splash, menú con
+      tarjetas, mapa de niveles, flechas de dirección y láminas nuevas). Los tests de
+      widget cubren el layout, pero el navegador del entorno de verificación dejó de
+      renderizar (§2.2).
+- [ ] **Revisión visual de los 6 PNG de las láminas en un móvil** (el color real del
+      relleno por región y el grosor del contorno se ven mejor en dispositivo).
+- [ ] **Prueba con niños reales** (3-8 años): el diseño está pensado para ellos,
+      pero la validación de usabilidad solo la pueden dar las pruebas de campo.
+- [ ] **Orientación horizontal en dispositivo**: el layout está validado por
+      tests, pero falta la comprobación visual real en un móvil.
+- [ ] **Store**: firma, ficha de la tienda, clasificación por edad y aviso de
+      "contiene música y efectos de sonido".
+
+---
+
+## 8. Cómo repetir la verificación
+
+```powershell
+cd C:\opencode_proyects\Game-PincelyCarreras
+
+flutter analyze                  # V1
+flutter test                     # V2 (genera build/screenshots/*.png)
+flutter build apk --debug        # V3
+
+cd tool\asset_studio
+flutter test                     # V5 (regenera los PNG)
+cd ..\..
+dart run tool\generate_audio.dart   # V6 (regenera los WAV)
+```
