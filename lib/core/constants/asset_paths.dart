@@ -102,11 +102,11 @@ class AssetPaths {
   /// Bus escolar.
   static const String bus = '$cars/bus.png';
 
-  /// Coche visto de lado (modo subidas).
-  static const String sideCar = '$cars/coche_lateral.png';
+  /// Coche de policia.
+  static const String policia = '$cars/policia.png';
 
-  /// Rueda de perfil (modo subidas).
-  static const String sideWheel = '$cars/rueda.png';
+  /// Ambulancia.
+  static const String ambulancia = '$cars/ambulancia.png';
 
   // -------------------------------------------------------------------------
   // Pistas y mobiliario
@@ -180,9 +180,6 @@ class AssetPaths {
 
   /// Roca.
   static const String rock = '$tracks/roca.png';
-
-  /// Bandera de meta (dibujada por el juego: no es un asset).
-  static const String finishBanner = '$tracks/meta.png';
 
   /// Estrella coleccionable.
   static const String star = '$items/estrella.png';

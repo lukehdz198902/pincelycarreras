@@ -114,18 +114,18 @@ class RacingGame extends FlameGame
   /// Se invoca cuando el coche cambia de carril.
   final VoidCallback? onLaneChange;
 
+  /// `true` mientras el nino mantiene pulsado el acelerador.
+  bool accelerating = false;
+
+  /// `true` mientras el nino mantiene pulsado el freno.
+  bool braking = false;
+
   /// Color de fondo mientras se cargan los sprites.
   ///
   /// Flame usa negro puro por defecto, que provocaria un destello negro
   /// al entrar en la pantalla. Se usa el azul noche de la paleta.
   @override
   Color backgroundColor() => AppPalette.ink;
-
-  /// Velocidad inicial de la pista.
-  static const double initialSpeed = RaceTiming.baseSpeed;
-
-  /// Velocidad maxima de la pista (constante: no acelera).
-  static const double maxSpeed = RaceTiming.baseSpeed;
 
   /// Tiempo entre filas de obstaculos (multiplicador de la velocidad).
   ///
@@ -156,13 +156,14 @@ class RacingGame extends FlameGame
   Car? _car;
   TrackScroller? _scroller;
   VehicleTrail? _trail;
+  SpeedStreaks? _streaks;
+  SparkField? _sparkField;
   bool _assetsReady = false;
   bool _halted = false;
   bool _finished = false;
   double _scroll = 0;
-  double _elapsed = 0;
   double _raceSeconds = 0;
-  double _speed = initialSpeed;
+  double _speed = 0;
   double _distanceSinceRow = 0;
   double _distanceSinceLap = 0;
   double _lapDistance = 2600;
@@ -173,6 +174,18 @@ class RacingGame extends FlameGame
 
   /// Velocidad actual de la pista.
   double get currentSpeed => _speed;
+
+  /// Velocidad maxima de este mundo (px/s).
+  double get maxSpeed => RaceTiming.maxSpeed * speedScale;
+
+  /// Progreso del recorrido (0..1) hacia la meta.
+  double get progress {
+    final total = _lapDistance * laps;
+    if (total <= 0) {
+      return 0;
+    }
+    return (_scroll / total).clamp(0.0, 1.0);
+  }
 
   /// `true` si el juego esta listo para jugar.
   bool get isReady => _assetsReady && _car != null;
@@ -317,11 +330,31 @@ class RacingGame extends FlameGame
     _trail = trail;
     await world.add(trail);
 
+    // Lineas de viento: aparecen al correr rapido.
+    final streaks = SpeedStreaks()..priority = 3;
+    _streaks = streaks;
+    await world.add(streaks);
+
+    // Chispas de las estrellas recogidas.
+    final sparks = SparkField()..priority = 4;
+    _sparkField = sparks;
+    await world.add(sparks);
+
     final car = Car(
       image: carImage,
       carWidth: carWidth,
       carHeight: carHeight,
-      onCollect: () => onStarCollected(1),
+      onCollect: () {
+        onStarCollected(1);
+        // Chispas en el punto de la estrella: el nino ve que recoje.
+        final position = _car?.position.clone();
+        if (position != null) {
+          _sparkField?.burst(
+            position: position,
+            color: const Color(0xFFFFD32A),
+          );
+        }
+      },
       onCrash: onCrash,
     )..position = Vector2(size.x / 2, size.y * 0.78);
     _car = car;
@@ -345,9 +378,8 @@ class RacingGame extends FlameGame
 
     _builtSize = size.clone();
     _scroll = 0;
-    _elapsed = 0;
     _raceSeconds = 0;
-    _speed = initialSpeed * speedScale;
+    _speed = 0;
     _distanceSinceRow = 0;
     _distanceSinceLap = 0;
     _bannersSpawned = 0;
@@ -457,12 +489,22 @@ class RacingGame extends FlameGame
       return;
     }
 
-    _elapsed += dt;
-    // Velocidad CONSTANTE: el nino no pierde el ritmo a mitad de carrera.
-    _speed = RaceTiming.speedAt(_elapsed, speedScale);
+    // El nino marca el ritmo: mantiene pulsado el acelerador para avanzar.
+    if (accelerating) {
+      _speed += RaceTiming.acceleration * dt;
+    } else if (braking) {
+      _speed -= RaceTiming.braking * dt;
+    } else {
+      // Al soltar el acelerador el coche rueda y frena solo.
+      _speed -= RaceTiming.coasting * dt;
+    }
+    _speed = _speed.clamp(0, maxSpeed);
+
     _scroll += _speed * dt;
     scroller.scroll = _scroll;
     _trail?.anchor = car.position.clone();
+    _trail?.speed = _speed;
+    _streaks?.intensity = (_speed / maxSpeed).clamp(0.0, 1.0);
 
     _distanceSinceRow += _speed * dt;
     if (_distanceSinceRow >= _speed * rowSpacingFactor) {
@@ -560,6 +602,17 @@ class RacingGame extends FlameGame
     }
 
     await world.addAll(newComponents);
+
+    // Topes de seguridad: nunca se acumulan mas de estos elementos, asi el
+    // juego no puede ir perdiendo fotogramas con el tiempo.
+    while (_obstacles.length > 24) {
+      final old = _obstacles.removeAt(0);
+      old.removeFromParent();
+    }
+    while (_collectibles.length > 20) {
+      final old = _collectibles.removeAt(0);
+      old.removeFromParent();
+    }
   }
 
   Future<void> _spawnBanner({required bool isFinish}) async {
@@ -570,6 +623,12 @@ class RacingGame extends FlameGame
       ..position = Vector2(size.x / 2 - roadWidth / 2, -60);
     _banners.add(banner);
     await world.add(banner);
+
+    // Topes de seguridad para los banderines.
+    while (_banners.length > 6) {
+      final old = _banners.removeAt(0);
+      old.removeFromParent();
+    }
   }
 
   ObstacleType _randomObstacleType() {

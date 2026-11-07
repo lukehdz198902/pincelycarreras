@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/asset_paths.dart';
@@ -198,7 +199,23 @@ class _RacingScreenState extends State<RacingScreen>
     if (selected == null || !mounted) {
       return;
     }
+    // El vehiculo cambia **al instante**: se recrea la carrera con el nuevo.
     _restart();
+  }
+
+  /// Acelera (o frena) segun el boton que el nino mantenga pulsado.
+  void _setPedal({required bool accelerating, required bool braking}) {
+    final game = _gameKey.currentState?.currentGame ?? _game;
+    if (game == null) {
+      return;
+    }
+    final wasStopped = game.currentSpeed < 20;
+    game.accelerating = accelerating;
+    game.braking = braking;
+    if (accelerating && wasStopped) {
+      // "Vroom": el motor arranca cuando el nino empuja.
+      _audio?.playSfx(SfxKind.engine);
+    }
   }
 
   void _goToLevel(LevelSpec level) {
@@ -330,6 +347,7 @@ class _RacingScreenState extends State<RacingScreen>
           if (_completed) _buildSummaryOverlay(),
           // Controles visibles: el nino ve donde tocar para ir a cada lado.
           if (!_paused && !_completed) _buildSteering(),
+          if (!_paused && !_completed) _buildHud(),
           const Positioned.fill(child: UnlockOverlay()),
         ],
       ),
@@ -344,23 +362,76 @@ class _RacingScreenState extends State<RacingScreen>
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _SteerButton(
-                key: const ValueKey<String>('steer_left'),
-                icon: Icons.chevron_left_rounded,
-                label: 'Izquierda',
-                onTap: _steerLeft,
+              // Direccion (tambien se puede arrastrar el coche).
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SteerButton(
+                    key: const ValueKey<String>('steer_left'),
+                    icon: Icons.chevron_left_rounded,
+                    label: 'Izquierda',
+                    onTap: _steerLeft,
+                  ),
+                  const SizedBox(width: 8),
+                  _SteerButton(
+                    key: const ValueKey<String>('steer_right'),
+                    icon: Icons.chevron_right_rounded,
+                    label: 'Derecha',
+                    onTap: _steerRight,
+                  ),
+                ],
               ),
-              _SteerButton(
-                key: const ValueKey<String>('steer_right'),
-                icon: Icons.chevron_right_rounded,
-                label: 'Derecha',
-                onTap: _steerRight,
+              // Frenar.
+              _PedalButton(
+                key: const ValueKey<String>('brake'),
+                icon: Icons.pause_rounded,
+                label: 'Frenar',
+                color: AppPalette.red,
+                size: 60,
+                onPressed: (value) => _setPedal(
+                  accelerating: false,
+                  braking: value,
+                ),
+              ),
+              // Acelerar: hay que mantenerlo pulsado.
+              _PedalButton(
+                key: const ValueKey<String>('accelerate'),
+                icon: Icons.play_arrow_rounded,
+                label: 'Acelerar',
+                color: AppPalette.green,
+                size: 76,
+                onPressed: (value) => _setPedal(
+                  accelerating: value,
+                  braking: false,
+                ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Marcador: velocidad y progreso hacia la meta.
+  ///
+  /// Es un widget aparte con su propio ticker: solo se repinta la chapa del
+  /// HUD en cada frame, no toda la pantalla.
+  Widget _buildHud() {
+    return Positioned(
+      top: 62,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: _RaceHud(
+            gameProvider: () => _gameKey.currentState?.currentGame ?? _game,
+            active: !_paused && !_completed,
           ),
         ),
       ),
@@ -608,6 +679,229 @@ class _SummaryStat extends StatelessWidget {
   }
 }
 
+/// Chapa del marcador: velocidad actual y progreso hacia la meta.
+///
+/// Lleva **su propio ticker** paraActualizarse en cada frame sin repintar
+/// toda la pantalla de carreras (que contiene el `GameWidget` de Flame).
+class _RaceHud extends StatefulWidget {
+  const _RaceHud({required this.gameProvider, required this.active});
+
+  /// Devuelve el juego vivo (cambia al reiniciar la carrera).
+  final RacingGame? Function() gameProvider;
+
+  /// `false` cuando la carrera esta en pausa o terminada: el ticker se para.
+  final bool active;
+
+  @override
+  State<_RaceHud> createState() => _RaceHudState();
+}
+
+class _RaceHudState extends State<_RaceHud>
+    with SingleTickerProviderStateMixin {
+  late final Ticker _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RaceHud oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncTicker();
+  }
+
+  /// Arranca o para el ticker segun el estado de la carrera.
+  void _syncTicker() {
+    if (widget.active) {
+      if (!_ticker.isActive) {
+        _ticker.start();
+      }
+    } else if (_ticker.isActive) {
+      _ticker.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final game = widget.gameProvider();
+    final speed = game?.currentSpeed ?? 0;
+    final max = game?.maxSpeed ?? 1;
+    final progress = game?.progress ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppPalette.white.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppPalette.violet, width: 3),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.speed_rounded,
+            color: AppPalette.red,
+            size: 20,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${speed.round()}',
+            style: const TextStyle(
+              color: AppPalette.ink,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 86,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: (speed / max).clamp(0.0, 1.0),
+                minHeight: 9,
+                backgroundColor: const Color(0x22000000),
+                valueColor: const AlwaysStoppedAnimation(AppPalette.green),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 86,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 9,
+                backgroundColor: const Color(0x22000000),
+                valueColor: const AlwaysStoppedAnimation(AppPalette.violet),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pedal: hay que **mantenerlo pulsado** (acelerar o frenar).
+///
+/// Es el control principal: el nino marca el ritmo de la carrera.
+class _PedalButton extends StatefulWidget {
+  const _PedalButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.size,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final double size;
+  final ValueChanged<bool> onPressed;
+
+  @override
+  State<_PedalButton> createState() => _PedalButtonState();
+}
+
+class _PedalButtonState extends State<_PedalButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: widget.label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) {
+          setState(() => _pressed = true);
+          widget.onPressed(true);
+        },
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onPressed(false);
+        },
+        onTapCancel: () {
+          setState(() => _pressed = false);
+          widget.onPressed(false);
+        },
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 90),
+          scale: _pressed ? 0.9 : 1,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppPalette.white, width: 5),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x44000000),
+                      offset: Offset(0, 6),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  widget.icon,
+                  color: AppPalette.white,
+                  size: widget.size * 0.56,
+                ),
+              ),
+              const SizedBox(height: 4),
+              // La etiqueta nunca puede ser mas ancha que el pedal: en
+              // pantallas estrechas se encoge.
+              SizedBox(
+                width: widget.size,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: AppPalette.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      shadows: [
+                        Shadow(
+                          color: Color(0x88000000),
+                          offset: Offset(0, 2),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Boton redondo de direccion visible en pantalla.
 ///
 /// El nino ve donde tiene que tocar: flecha grande, area tactil amplia y
@@ -646,8 +940,8 @@ class _SteerButtonState extends State<_SteerButton> {
           duration: const Duration(milliseconds: 120),
           opacity: _pressed ? 1 : 0.62,
           child: Container(
-            width: 84,
-            height: 84,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               color: AppPalette.white.withValues(alpha: 0.72),
               shape: BoxShape.circle,
@@ -663,7 +957,7 @@ class _SteerButtonState extends State<_SteerButton> {
             child: Icon(
               widget.icon,
               color: AppPalette.ink,
-              size: 54,
+              size: 42,
             ),
           ),
         ),

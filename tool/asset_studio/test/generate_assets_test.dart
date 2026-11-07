@@ -96,18 +96,22 @@ void main() {
             drawBus(canvas, const ui.Size(190, 340), StudioPalette.yellow),
       ),
       (
-        path: 'cars/coche_lateral.png',
-        size: const ui.Size(480, 280),
-        draw: (canvas) => drawSideCarBody(
+        path: 'cars/policia.png',
+        size: const ui.Size(160, 240),
+        draw: (canvas) => drawPoliceCar(
           canvas,
-          const ui.Size(480, 280),
-          StudioPalette.red,
+          const ui.Size(160, 240),
+          StudioPalette.blue,
         ),
       ),
       (
-        path: 'cars/rueda.png',
-        size: const ui.Size(144, 144),
-        draw: (canvas) => drawSideWheel(canvas, const ui.Size(144, 144)),
+        path: 'cars/ambulancia.png',
+        size: const ui.Size(180, 280),
+        draw: (canvas) => drawAmbulance(
+          canvas,
+          const ui.Size(180, 280),
+          StudioPalette.white,
+        ),
       ),
     ]);
   });
@@ -229,16 +233,8 @@ void main() {
         size: const ui.Size(96, 96),
         draw: (canvas) => drawRock(canvas, const ui.Size(96, 96)),
       ),
-      (
-        path: 'tracks/meta.png',
-        size: const ui.Size(192, 80),
-        draw: (canvas) => drawFinishBanner(canvas, const ui.Size(192, 80)),
-      ),
-      (
-        path: 'tracks/banderin.png',
-        size: const ui.Size(96, 60),
-        draw: (canvas) => drawLapBanner(canvas, const ui.Size(96, 60)),
-      ),
+      // La meta y los banderines **no** son assets: el juego los dibuja por
+      // codigo (`_TrackBanner`) para que no se pixelen al estirarse.
     ]);
   });
 

@@ -68,10 +68,11 @@ lib/
 ├── game/                     # Lógica de juego (NO widgets de Flutter)
 │   ├── coloring/             # paint_canvas.dart, brush.dart, flood_fill.dart
 │   └── racing/               # racing_game.dart, race_timing.dart, car.dart, obstacle.dart,
-│                             # collectible.dart, level_ambience.dart, track_generator.dart, lane.dart
+│                             # collectible.dart, level_ambience.dart, track_generator.dart,
+│                             # lane.dart, vehicle_trail.dart (efectos)
 ├── ui/                       # Menús y pantallas de Flutter (NO lógica de juego)
-│   ├── screens/              # splash, menu, level_select, garage, coloring, racing, sticker_book
-│   └── widgets/              # MenuTile, BigButton, ColorPicker, ToolPicker, StarCounter
+│   ├── screens/              # splash, menu, level_select, garage, studio, coloring, racing, sticker_book
+│   └── widgets/              # MenuTile, BigButton, HelpButton, ColorPicker, ToolPicker, StarCounter
 └── shared/                   # Utilidades transversales (context_extensions.dart)
 ```
 
@@ -124,6 +125,12 @@ La comunicación va por `services/`, por `providers/` y por callbacks.
 - El `Game` no debe contener lógica de guardado: delega en `services/`.
 - El modelo de velocidad de la pista vive en `lib/game/racing/race_timing.dart` (código puro):
   el mundo **siempre dura al menos un minuto** y la meta se calcula con esa función.
+- **La velocidad la marca el niño**: `RacingGame.accelerating` / `RacingGame.braking` son
+  flags que la UI escribe (el acelerador se **mantiene pulsado**). Si se cambia el modelo de
+  velocidad, hay que cambiar **también** el control en pantalla: sin botón, el juego se
+  queda parado y parece "lento".
+- **Nada se acumula sin límite**: obstáculos, coleccionables y banderines tienen **topes**
+  (`≤ 24 / ≤ 20 / ≤ 6`). Una escena que crece hace que el juego se ralentice con el uso.
 
 ### Ciclo de vida (obligatorio)
 

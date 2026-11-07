@@ -53,8 +53,7 @@ exigir lectura.
              ┌──────────────────────┐
              │      MENÚ INICIAL    │  (MenuScreen)
              │ [🖌 Pintar] [🚗 Carreras]│
-             │ [⛰ Subidas] [🎨 Taller]│
-             │       [⭐ Pegatinas]   │
+             │ [🎨 Taller] [⭐ Pegatinas]│
              └───────┬──────┬───────┘
                      │      │
        ┌─────────────┘      └─────────────┐
@@ -65,30 +64,38 @@ exigir lectura.
 │  lienzo + brochas  │            │  12 tarjetas       │
 └─────────┬──────────┘            └─────────┬──────────┘
           │                                  │
-          │                    ┌─────────────┴─────────────┐
-          │                    ▼                           ▼
-          │         ┌──────────────────┐        ┌──────────────────┐
-          │         │  CARRERAS        │        │  SUBIDAS         │
-          │         │  (RacingScreen)  │        │  (ClimbScreen)   │
-          │         │  top-down        │        │  vista de lado   │
-          │         │  + flechas ⭠ ➡   │        │  acelerar/frenar  │
-          │         └──────────────────┘        └──────────────────┘
-          │                    │
-          │                    ▼
-          │         ┌──────────────────┐
-          │         │  TALLER          │
-          │         │  (StudioScreen)  │
-          │         │  calca + color   │
-          │         │  + pasajero      │
-          │         └──────────────────┘
-          │                                  │
-          └──────────────┬──────────────────┘
-                         ▼
-                ┌────────────────────┐
-                │  LIBRO DE PEGATINAS│  (StickerBookScreen)
-                │  ★★★★░░░░ → 4/6   │
-                └────────────────────┘
+          │                                  ▼
+          │                       ┌──────────────────┐
+          │                       │  CARRERAS        │
+          │                       │  (RacingScreen)  │
+          │                       │  top-down        │
+          │                       │  ⭠ ➡ + pedales   │
+          │                       └────────┬─────────┘
+          │                                │
+          │                                ├──▶ ┌──────────────┐
+          │                                │    │  GARAJE      │
+          │                                │    │ (GarageScreen)│
+          │                                │    │ 12 vehículos │
+          │                                │    └──────────────┘
+          │                                │
+          │                                ├──▶ ┌──────────────┐
+          │                                │    │  TALLER      │
+          │                                │    │(StudioScreen)│
+          │                                │    │calca+color+  │
+          │                                │    │personaje     │
+          │                                │    └──────────────┘
+          │                                │
+          │                                └──▶ ┌──────────────┐
+          │                                     │  LIBRO DE    │
+          ▼                                     │  PEGATINAS   │
+   ┌────────────────────┐                       │(StickerBook) │
+   │  LIBRO DE PEGATINAS│                       └──────────────┘
+   │  ★★★★░░░░ → 4/10  │
+   └────────────────────┘
 ```
+
+> El modo "Subidas" se **eliminó** del producto: la energía del desarrollo está
+> en **Carreras**, que es el modo con el que más juega el niño.
 
 **Regla de navegación:** siempre hay un botón **ATRÁS** (icono) visible, ≥ 60 dp, en la esquina
 superior. En horizontal, en la esquina superior derecha. Nunca se pierde el niño en la app.
@@ -197,10 +204,30 @@ para no penalizar el frame rate en dispositivos baratos.
 ## 5. MODO 2 — CARRERAS
 
 ### 5.1 Objetivo
-Conducir un coche que **acelera solo** por una pista y que el niño dirige **tocando la
-pantalla** para cambiar de carril, esquivando obstáculos y recogiendo estrellas.
+Conducir un coche por una pista que **el niño mueve manteniendo pulsado el
+acelerador**, mientras dirige **tocando la pantalla** para esquivar obstáculos y
+recoger estrellas. El niño **marca el ritmo**: si suelta el acelerador, el coche
+rueda y frena; si lo mantiene, corre.
 
-### 5.2 Controles (flechas, arrastre y toque)
+### 5.2 Controles (pedales, flechas, arrastre y toque)
+
+#### 5.2.1 Pedales (control principal)
+
+| Control | Gesto | Resultado | Feedback |
+|---|---|---|---|
+| **Acelerar** 🟢 | **Mantener pulsado** (76 dp) | El coche acelera hasta la velocidad máxima del mundo (180 px/s × multiplicador) | SFX `motor` al arrancar + líneas de viento que crecen con la velocidad |
+| **Frenar** 🔴 | **Mantener pulsado** (60 dp) | El coche frena con fuerza (420 px/s²) hasta pararse | Las líneas de viento se acortan |
+| **Soltar** | Levantar el dedo | El coche **rueda y frena solo** (190 px/s²) | La estela se desvanece |
+
+- Los pedales están **siempre visibles** en la parte inferior: el niño ve dónde
+  tiene que apretar, sin tener que adivinarlo.
+- El botón de **acelerar** es más grande que el de frenar: es el que se usa.
+- Ambos botones tienen etiqueta con `FittedBox`, así que **no desbordan** ni
+  siquiera en un móvil de 320 dp.
+- El sonido de motor (`sfx/motor.wav`) suena **solo al arrancar desde parado**
+  (no en cada pulsación), para no cansar.
+
+#### 5.2.2 Dirección
 
 | Gesto | Resultado | Feedback |
 |---|---|---|
@@ -211,16 +238,26 @@ pantalla** para cambiar de carril, esquivando obstáculos y recogiendo estrellas
 | **Tocar mitad derecha** | Cambia a carril derecho | SFX `swoosh` + el coche rota ±12° con rebote |
 | **Tocar dos veces seguidas** | Vuelve al carril central | SFX `swoosh` |
 
-- Las **flechas grandes (84 dp, semitransparentes)** están siempre en pantalla: el niño
-  **ve dónde tiene que tocar** sin tener que adivinarlo.
-- El coche se mueve **libremente por toda la carretera** (no solo de carril en carril):
-  la pista es ancha y **sin líneas que la partan en tres**, como en los juegos de hoy.
-- La velocidad **no cambia nunca** durante la carrera (150 px/s base, con un multiplicador
-  suave por mundo). Así el niño pequeño **siempre puede seguir el ritmo**.
-- **No hay botón de freno ni acelerador** en el modo carreras. Un niño de 3 años solo
-  puede tocar.
+- Las **flechas grandes (64 dp, semitransparentes)** están siempre en pantalla.
+- El coche se mueve **libremente por toda la carretera** (no solo de carril en
+  carril): la pista es ancha y **sin líneas que la partan en tres**.
 - **No hay cronómetro ni barra de distancia obligatoria.** El avance se siente por
-  la velocidad del scroll del fondo.
+  la velocidad del scroll del fondo y por el **HUD** (§5.2.3).
+
+#### 5.2.3 HUD (marcador)
+
+Una chapa flotante arriba, en el centro, con:
+
+| Elemento | Significado |
+|---|---|
+| 🏎 **Número** | Velocidad actual en px/s (redondeada) |
+| 🟢 **Barra verde** | Cuánto de la velocidad máxima lleva puesto |
+| 🟣 **Barra violeta** | **Progreso hacia la meta** (0 → 1) |
+
+- La chapa se repinta **en cada frame** (el HUD tiene su propio reloj) y **se congela**
+  cuando la carrera está en pausa o terminada.
+- El HUD **no** tiene iconos de "cambiar de marcha" ni de "cronómetro": solo lo que el
+  niño necesita para entender que está corriendo y que le queda camino.
 
 ### 5.3 Física y mundo
 
@@ -233,6 +270,23 @@ pantalla** para cambiar de carril, esquivando obstáculos y recogiendo estrellas
   **misma velocidad que el scroll**, de modo que el "movimiento" es embotado por el niño
   (los elementos se ven venir con tiempo para reaccionar).
 
+#### 5.3.1 Modelo de velocidad (`RaceTiming`)
+
+El modelo es **puro** (sin Flutter) y vive en `lib/game/racing/race_timing.dart`:
+
+| Constante | Valor | Significado |
+|---|---|---|
+| `maxSpeed` | 180 px/s | Velocidad máxima del mundo (× `speedScale`) |
+| `acceleration` | 260 px/s² | Cuánto gana el coche acelerando |
+| `braking` | 420 px/s² | Cuánto pierde el coche frenando |
+| `coasting` | 190 px/s² | Cuánto pierde el coche al soltar el acelerador |
+
+- La velocidad **nunca cambia sola**: depende del dedo del niño.
+- `distanceAfter(t)` da la distancia máxima recorrida en `t` segundos acelerando
+  siempre; es la base para calcular la distancia de la meta.
+- `timeForDistance(d)` es la inversa (bisección cerrada) y permite verificar en los
+  tests que **ningún mundo dura menos de un minuto**.
+
 ### 5.4 Elementos de la pista
 
 | Elemento | Asset | Comportamiento | Valor |
@@ -241,7 +295,12 @@ pantalla** para cambiar de carril, esquivando obstáculos y recogiendo estrellas
 | **Cono** 🔺 | `tracks/cono.png` | Impacto | Frenazo 1 s |
 | **Charco** 💧 | `tracks/charco.png` | Impacto | Frenazo 1 s |
 | **Roca** 🪨 | `tracks/roca.png` | Impacto | Frenazo 1 s |
-| **Meta** 🏁 | `tracks/meta.png` | Al cruzarla: vuelta completada | +3 estrellas + destello |
+| **Banderín** 🏁 | *dibujado por código* | Avisa de que el mundo sigue | +1 estrella |
+| **Meta** 🏁 | *dibujada por código* | Al cruzarla: carrera completada | +3 estrellas + destello |
+
+- La **meta y los banderines se dibujan en el mundo**, no como sprite: así son
+  nítidos a cualquier tamaño (los PNG se veían pixeleados al estirarlos por toda
+  la carretera) y el coche pasa **por encima** de ellos (`priority = -1`).
 - **Los obstáculos son "amables"**: al chocar, el coche se **detiene 1 segundo**, hace un
   *shake* de 300 ms, aparece una nubecina de polvo y **el juego continúa**. No se pierde
   nada, no hay sonido de error, no hay Game Over.
@@ -252,6 +311,9 @@ pantalla** para cambiar de carril, esquivando obstáculos y recogiendo estrellas
 - **Trampa de scroll (anti-frustración)**: los obstáculos nunca ocupan los 3 carriles a la
   vez — siempre queda **al menos un carril libre** (y con el arrastre libre, un hueco
   ancho).
+- **Topes de seguridad**: nunca hay más de **24 obstáculos**, **20 coleccionables** ni
+  **6 banderines** vivos a la vez. Así el juego no puede ir perdiendo fotogramas con el
+  tiempo de uso.
 
 ### 5.5 Pistas (12 mundos)
 
@@ -303,22 +365,23 @@ Se desbloquean **en orden** (el mundo N+1 se abre al superar el N) y **nunca se 
 ### 5.5 ter El final de la carrera
 
 Cada carrera **tiene final**: el recorrido es una distancia calculada a partir del modelo
-de velocidad (`v = v0 + (vmax − v0)·(1 − e^(−t/18))`).
+de velocidad de `RaceTiming` (`distanceAfter`), suponiendo que el niño **acelera siempre**.
 
 - La **meta** (bandera a cuadros) aparece al final del recorrido y **cierra la carrera**.
 - Antes de la meta hay **banderines** intermedios: cada uno da estrellas y es un aviso de
   que el mundo sigue.
 - **Cada mundo dura al menos un minuto**: la distancia de la meta se calcula con
   `RaceTiming.lapDistance()` para que el recorrido dure entre 65 y 78 segundos. Si el niño
-  choca, el mundo se para y la carrera dura **más**, nunca menos.
+  choca o no acelera, el mundo se para y la carrera dura **más**, nunca menos.
 - Al cruzar la meta aparece el **resumen**: estrellas recogidas, tiempo de la carrera y
   mejor tiempo, con tres botones: **repetir**, **siguiente mundo** y **mapa**.
 - El récord se guarda por mundo (`progress_best_times`) y **solo mejora**: nunca empeora.
 
-### 5.6 Vehículos (10)
+### 5.6 Vehículos (12)
 
 El garaje (`GarageScreen`) ofrece coches y **otros vehículos**. Cada uno tiene su **tamaño
-en pista** (una moto es estrecha, un bus es enorme) y su propio dibujo.
+en pista** (una moto es estrecha, un bus es enorme), su propio dibujo, **conductor visible**
+y **calca**.
 
 | # | Vehículo | Tipo | Color | Estado | Tamaño |
 |---|---|---|---|---|---|
@@ -326,43 +389,42 @@ en pista** (una moto es estrecha, un bus es enorme) y su propio dibujo.
 | 2 | **Rayo** | Coche | Azul `#4D8DFF` | Inicial | 1,00× |
 | 3 | **Tortuga** | Coche | Verde `#2ED573` | 5 estrellas | 1,00× |
 | 4 | **Sol** | Coche | Amarillo `#FFD32A` | 10 estrellas | 1,00× |
-| 5 | **Chispa** | Moto | Amarillo | 12 estrellas | 0,55× ancho |
+| 5 | **Chispa** | Moto | Amarillo | 14 estrellas | 0,55× ancho |
 | 6 | **Camión** | Camión de bomberos | Rojo | 18 estrellas | 1,10× ancho |
-| 7 | **Cohete** | Coche | Violeta `#9C5CFF` | 24 estrellas | 1,00× |
-| 8 | **Furgoneta** | Furgoneta | Violeta | 28 estrellas | 1,10× ancho |
-| 9 | **Tractor** | Tractor | Naranja | 32 estrellas | 1,05× ancho |
-| 10 | **Bus escolar** | Bus | Amarillo | 36 estrellas | 1,20× ancho |
+| 7 | **Policía** | Coche patrulla | Azul | 22 estrellas | 1,00× |
+| 8 | **Furgoneta** | Furgoneta | Violeta | 26 estrellas | 1,10× ancho |
+| 9 | **Ambulancia** | Ambulancia | Blanco | 30 estrellas | 1,15× ancho |
+| 10 | **Tractor** | Tractor | Naranja | 34 estrellas | 1,05× ancho |
+| 11 | **Bus escolar** | Bus | Amarillo | 38 estrellas | 1,20× ancho |
+| 12 | **Cohete** | Coche | Violeta `#9C5CFF` | 42 estrellas | 1,00× |
 
 - El vehículo se elige en el **garaje**, accesible desde el mapa de mundos y desde la
   pantalla de carreras (el botón con el vehículo, arriba a la izquierda).
+- **El cambio se aplica al instante**: el garaje devuelve el vehículo elegido y la carrera
+  se reinicia con el nuevo, sin salir de la pantalla.
 - Todos los vehículos están **libres para el niño que ya tiene estrellas**: el candado
   desaparece en cuanto hay suficientes.
 - El tamaño en pista se calcula con `widthFactor` y `heightFactor`: un bus es 1,2× más
   ancho que un coche y una moto ocupa la mitad.
+- **Personaje y calca**: los vehículos grandes llevan **conductor visible** (la cabeza con
+  gorro asomando por la cabina) y una **calca de estrella** en la carrocería. El bus lleva
+  además a los pasajeros asomados por las ventanas. Así ningún vehículo va "vacío".
 
-### 5.8 Modo "Subidas" (estilo Hill Climb Racing)
+### 5.6 bis Efectos de carrera (lo que emociona)
 
-Un **segundo tipo de carrera**, en vista de lado, para Variety de las carreras:
+La carrera no es estática: hay **cuatro capas de efectos** que reaccionan a lo que hace
+el niño.
 
-| Elemento | Detalle |
-|---|---|
-| **Vista** | Lateral: el vehículo recorre el terreno **hacia la derecha** |
-| **Controles** | Dos botones gigantes (96 dp): **acelerar** (verde) y **frenar** (rojo), se mantienen pulsados. El freno manda si se pulsan los dos |
-| **Física** | El vehículo **tiene peso**: si el terreno cae más rápido de lo que puede seguir, **despega**, vuela y aterriza aplastando la suspensión |
-| **Terreno** | Colinas, rampas con rasante (lanzan al coche) y **vueltas de 360°** (el vehículo pasa del revés) |
-| **Mundos** | 6 subidas (Colinas, Dunas, Luna, Cumbre, Tronco, Ruedas), **todas abiertas** desde el inicio |
-| **Estrellas** | Repartidas por el recorrido: se recogen al pasar por encima |
-| **Final** | En la meta aparece el resumen: estrellas, tiempo y recorrido en metros |
-| **Fracaso** | No existe: el vehículo nunca se cae y la carrera siempre termina |
+| Efecto | Qué es | Cuándo aparece |
+|---|---|---|
+| **Estela** (`VehicleTrail`) | Nubecinas de polvo que salen de las ruedas | Siempre; crecen con la velocidad |
+| **Líneas de viento** (`SpeedStreaks`) | Rayas blancas que pasan por los lados | Cuanto más rápido va el coche, **más largas y más nombreuses** |
+| **Chispas** (`SparkField`) | Explosión de chispas de color | Al **recoger una estrella** |
+| **Meta a cuadros** (`_TrackBanner`) | Línea de meta nítida, dibujada por código | Al final del recorrido |
 
-- El terreno se genera con `ClimbTerrain` (código puro): una lista de puntos con su
-  tangente y su **longitud de arco** (que siempre crece, incluso dentro de un loop).
-- La cámara **sigue al vehículo** con suavizado y **tiembla al aterrizar**.
-- Efectos: **ruedas que giran**, polvo bajo las ruedas, aterrizaje con suspensión y
-  **zumbido de motor** en bucle (`motor_loop.wav`).
-- El HUD muestra en vivo los **metros recorridos** y la **velocidad**.
-- En las subidas el vehículo es el **coche de perfil** (`cars/coche_lateral.png`), con la
-  rueda aparte (`cars/rueda.png`) para poder girarla.
+- El **HUD** (§5.2.3) cierra el conjunto: el niño ve su velocidad y su progreso.
+- Todos los efectos son **primitivas** dibujadas por código (cero assets nuevos) y
+  **se reciclan** cuando mueren: no crecen sin límite.
 
 ### 5.9 Taller: pintar y tunear el carrito
 
@@ -373,7 +435,7 @@ Sección propia (icono de bote) donde el niño personaliza su vehículo:
 | **Calca** | Rayas, estrella, llama, corazón o número (5) |
 | **Color de la calca** | Los 12 colores de la paleta (la calca se tiñe en tiempo real) |
 | **Pasajero** | Gato, perro, conejo o robot (4 personajes) |
-| **Vehículo** | Los 10 vehículos del garaje |
+| **Vehículo** | Los 12 vehículos del garaje |
 
 - La calca y el personaje se dibujan **encima del vehículo** dentro de la carrera
   (`_VehicleLivery`), así que el niño ve su customization en la pista.
@@ -394,14 +456,23 @@ Sección propia (icono de bote) donde el niño personaliza su vehículo:
 
 | Estrellas | Recompensa |
 |---|---|
-| **5** | Coche "Sol" (amarillo) + pegatina ⭐ |
-| **10** | Lámina extra "La casa" + pegatina ❤️ + color bronce `#CD7F32` |
+| **5** | Coche "Tortuga" (verde) + pegatina ⭐ |
+| **10** | Coche "Sol" (amarillo) + lámina extra "La casa" + pegatina ❤️ + color bronce `#CD7F32` |
 | **12** | Pegatina ➡️ |
-| **15** | Coche "Tortuga" (verde) + pegatina 🌈 + color esmeralda `#00C853` |
-| **18** | Pegatina 🎈 |
+| **14** | Moto "Chispa" |
+| **15** | Pegatina 🌈 + color esmeralda `#00C853` |
+| **18** | Camión de bomberos + pegatina 🎈 |
 | **20** | Lámina "El dinosaurio" + color dorado `#FFD700` |
+| **22** | Coche "Policía" |
 | **25** | Pegatina 👑 |
-| **30** | Coche "Cohete" (violeta) + lámina "La ciudad" + color plata `#C0C8D0` |
+| **26** | Furgoneta |
+| **30** | Ambulancia + lámina "La ciudad" + color plata `#C0C8D0` + pegatina 🏆 |
+| **34** | Tractor |
+| **35** | Pegatina 🥇 |
+| **38** | Bus escolar |
+| **40** | Pegatina 🚀 |
+| **42** | Coche "Cohete" (violeta) |
+| **45** | Pegatina ☄️ |
 
 - El contador de estrellas **siempre visible** durante la carrera (esquina superior derecha,
   64 dp, con animación de pop al sumar).
@@ -445,12 +516,10 @@ Contraste verificado: todos los botones usan **sombra de color** (no gris) y bor
 | Grupo | Archivos |
 |---|---|
 | Coches (5) | `cars/car_rojo.png` `car_azul.png` `car_amarillo.png` `car_verde.png` `car_violeta.png` |
-| Vehículos (5) | `cars/moto.png` `camion.png` `furgoneta.png` `tractor.png` `bus.png` |
-| Coche de perfil (1) | `cars/coche_lateral.png` (modo subidas) |
+| Vehículos (7) | `cars/moto.png` `camion.png` `policia.png` `furgoneta.png` `ambulancia.png` `tractor.png` `bus.png` |
 | Pistas (12 + mobiliario) | `tracks/track_pradera.png` `track_playa.png` `track_noche.png` `track_nieve.png` `track_bosque.png` `track_ciudad.png` `track_desierto.png` `track_selva.png` `track_puerto.png` `track_volcan.png` `track_espacio.png` `track_estadio.png` `bordillo.png` `banderin.png` |
-| Asaltos y bordillos (6) | `tracks/asfalto.png` `asfalto_tierra.png` `asfalto_piedra.png` `asfalto_hielo.png` `bordillo.png` `bordillo_amarillo.png` `bordillo_piedra.png` `bordillo_hielo.png` |
+| Asaltos y bordillos (8) | `tracks/asfalto.png` `asfalto_tierra.png` `asfalto_piedra.png` `asfalto_hielo.png` `bordillo.png` `bordillo_amarillo.png` `bordillo_piedra.png` `bordillo_hielo.png` |
 | Obstáculos (3) | `tracks/cono.png` `tracks/charco.png` `tracks/roca.png` |
-| Meta | `tracks/meta.png` |
 | Coleccionable | `items/estrella.png` |
 | Láminas (9) | `canvas/pagina_coche.png` `pagina_animales.png` `pagina_frutas.png` `pagina_verduras.png` `pagina_garaje.png` `pagina_paisaje.png` `pagina_casa.png` `pagina_dinosaurio.png` `pagina_ciudad.png` |
 | Pegatinas (10) | `stickers/pega_estrella.png` `pega_corazon.png` `pega_arcoiris.png` `pega_corona.png` `pega_flecha.png` `pega_globo.png` `pega_trofeo.png` `pega_medalla.png` `pega_cohete.png` `pega_cometa.png` |
@@ -458,6 +527,9 @@ Contraste verificado: todos los botones usan **sombra de color** (no gris) y bor
 | Personajes (4) | `characters/personaje_gato.png` `personaje_perro.png` `personaje_conejo.png` `personaje_robot.png` |
 | Iconos UI (9) | `ui/icono_pincel.png` `icono_coche.png` `icono_play.png` `icono_pausa.png` `icono_atras.png` `icono_libro.png` `icono_bote.png` `icono_borrador.png` `icono_estrella.png` |
 | Paleta | `palette/paleta.png` |
+
+> La **meta y los banderines no son assets**: se dibujan en el mundo por código
+> (`_TrackBanner`), así que no se pixelan al estirarse por la carretera.
 
 **Regla:** cada archivo referenciado en el código debe existir. El build falla si falta.
 
@@ -476,6 +548,7 @@ Contraste verificado: todos los botones usan **sombra de color** (no gris) y bor
 | `sfx/unlock.wav` | SFX | Arpegio ascendente al desbloquear, 700 ms. | 0.8 |
 | `sfx/ui_tap.wav` | SFX | Toque suave de interfaz, 70 ms. | 0.6 |
 | `sfx/welcome.wav` | SFX | Campanilla de bienvenida de la pantalla de inicio, 1,3 s, arpegio en Do mayor. | 0.7 |
+| `sfx/motor.wav` | SFX | "Vroom" del motor: zumbido que **sube de tono** en 1,2 s, con un poco de ruido de admisión. Suena **al arrancar a acelerar desde parado**. | 0.6 |
 
 **Reglas de audio**
 - Todos son **positivos**. No existe ningún sonido de "error" o "derrota".
@@ -534,14 +607,17 @@ Todo en `shared_preferences`, con prefijo de dominio:
 ### Incluido (MVP)
 - Pantalla de inicio animada con sonido, menú con tarjetas, estudio de pintura, mapa de
   mundos, garaje de vehículos, carreras y libro de pegatinas.
-- 4 herramientas, 16 colores, 9 láminas, 10 vehículos, 12 mundos, 3 obstáculos, 6 pegatinas.
+- 4 herramientas, 16 colores, 9 láminas, 12 vehículos, 12 mundos, 3 obstáculos, 10 pegatinas.
 - **12 mundos** con ambiente animado propio, desbloqueo progresivo y **final de carrera**
   de más de un minuto por mundo.
+- **Acelerador mantenido** (con freno) como control principal de las carreras, **HUD** de
+  velocidad y progreso, y **efectos** (estela, líneas de viento, chispas, meta nítida).
 - Persistencia local completa (estrellas, mundos, récords, vehículo y láminas).
 
 ### Fuera de alcance (explícito)
 - ~~Multijugador~~ · ~~Tienda~~ · ~~Ads~~ · ~~Cuentas~~ · ~~Modo historia~~
   · ~~Personajes con voz~~ · ~~Dificultad punitiva (vidas, derrota, cronómetro)~~
+  · ~~Modo "Subidas"~~ (eliminado: el esfuerzo está en Carreras)
 
 ### Mejoras futuras (arquitectura prepared)
 - Láminas descargables (paquete de assets) · más pistas · Multi-touch para pintar con 2 dedos
@@ -566,9 +642,13 @@ Todo en `shared_preferences`, con prefijo de dominio:
 | A10 | Funciona en vertical y horizontal sin overflow | Test de widget en ambas orientaciones |
 | A11 | Al salir de una carrera **se detienen** el motor del juego y la música | Test de widget con `AudioService` falso |
 | A12 | Hay 12 mundos con ambientes distintos y desbloqueo progresivo | Test de `LevelCatalog` + `ProgressProvider` |
-| A13 | Las flechas de dirección están **visibles** en la pantalla de carreras | Test de widget (`steer_left` / `steer_right`) |
+| A13 | Las flechas de dirección **y los pedales** están **visibles** en la pantalla de carreras | Test de widget (`steer_left` / `steer_right` / `accelerate` / `brake`) |
 | A14 | Cada carrera dura **al menos un minuto** y **tiene final** (meta) | Test de `RaceTiming` + test de widget de la pantalla de carreras |
-| A15 | El garaje ofrece coches, moto, camión, bus, tractor y furgoneta | Test de widget del garaje + test del catálogo |
+| A15 | El garaje ofrece coches, moto, camión, bus, tractor, furgoneta, policía y ambulancia | Test de widget del garaje + test del catálogo |
+| A16 | El coche **solo avanza si el niño mantiene pulsado el acelerador** | Test de widget: sin pedal la velocidad no sube; con pedal sí |
+| A17 | Cambiar de vehículo en el garaje se aplica **al instante**, sin salir de la carrera | Test de widget: abrir garaje → elegir → la carrera usa el nuevo |
+| A18 | El juego **no se ralentiza** con el tiempo de uso (nada se acumula sin límite) | Topes de seguridad (≤24 obstáculos, ≤20 coleccionables, ≤6 banderines) |
+| A19 | El HUD muestra **velocidad y progreso** | Test de widget + captura de pantalla |
 
 ---
 

@@ -87,7 +87,7 @@ void main() {
 
       final provider = await pumpGarage(tester);
 
-      provider.addStars(40);
+      provider.addStars(45);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 

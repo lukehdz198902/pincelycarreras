@@ -587,33 +587,36 @@ List<double> buildUiTap() {
   return buffer;
 }
 
-/// Motor del modo "Subidas".
+/// Motor: el "vroom" que suena al arrancar a acelerar.
 ///
-/// Un zumbido grave y continuo (2 s en bucle) con una ligera vibracion:
-/// da la sensacion de motor sin ser molesto ni estridente.
-List<double> buildMotorLoop() {
-  const seconds = 2.0;
+/// Un zumbido que **sube de tono** en 1,2 s (como un motor acelerando) con
+/// un pequeno ruido de admision.
+List<double> buildMotor() {
+  const seconds = 1.2;
   final buffer = List<double>.filled((seconds * kSampleRate).round(), 0);
 
-  // Dos armonicos graves (funda del motor) mas un batido.
   for (var i = 0; i < buffer.length; i++) {
     final t = i / kSampleRate;
-    final base = math.sin(kTwoPi * 55 * t) * 0.5 +
-        math.sin(kTwoPi * 110 * t) * 0.22 +
-        math.sin(kTwoPi * 165 * t) * 0.1;
-    // Vibracion lenta: el motor "tembla".
-    final wobble = 1 + 0.06 * math.sin(kTwoPi * 7.5 * t);
-    buffer[i] = base * wobble;
+    final progress = t / seconds;
+    // El tono sube con la aceleracion.
+    final frequency = 55 + progress * 85;
+    final base = math.sin(kTwoPi * frequency * t) * 0.6 +
+        math.sin(kTwoPi * frequency * 2 * t) * 0.22 +
+        math.sin(kTwoPi * frequency * 3 * t) * 0.08;
+    buffer[i] = base * (0.35 + progress * 0.65);
   }
 
-  // Filtro paso bajo para que suene suave.
-  final filter = LowPass(900);
+  // Admision: un poco de ruido filtrado.
+  final filter = LowPass(1400);
+  final random = math.Random(4242);
   for (var i = 0; i < buffer.length; i++) {
-    buffer[i] = filter.process(buffer[i]);
+    final t = i / kSampleRate;
+    final noise = filter.process(random.nextDouble() * 2 - 1);
+    buffer[i] += noise * 0.08 * (t / seconds);
   }
 
-  applyEdgeFade(buffer, 0.06);
-  normalize(buffer, 0.5);
+  applyEdgeFade(buffer, 0.05);
+  normalize(buffer, 0.6);
   return buffer;
 }
 
@@ -708,10 +711,6 @@ void main() {
     '$audioDir${Platform.pathSeparator}music${Platform.pathSeparator}racing_loop.wav',
     buildRacingLoop(),
   );
-  writeAudio(
-    '$audioDir${Platform.pathSeparator}music${Platform.pathSeparator}motor_loop.wav',
-    buildMotorLoop(),
-  );
 
   stdout.writeln(' Efectos:');
   writeAudio(
@@ -737,6 +736,10 @@ void main() {
   writeAudio(
     '$audioDir${Platform.pathSeparator}sfx${Platform.pathSeparator}ui_tap.wav',
     buildUiTap(),
+  );
+  writeAudio(
+    '$audioDir${Platform.pathSeparator}sfx${Platform.pathSeparator}motor.wav',
+    buildMotor(),
   );
   writeAudio(
     '$audioDir${Platform.pathSeparator}sfx${Platform.pathSeparator}welcome.wav',

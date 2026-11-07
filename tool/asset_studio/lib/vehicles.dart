@@ -1,4 +1,4 @@
-// Vehiculos vistos desde arriba: moto, camion, furgoneta, tractor y bus.
+﻿// Vehiculos vistos desde arriba: moto, camion, furgoneta, tractor y bus.
 //
 // La camara del juego es cenital, asi que todos los vehiculos se dibujan
 // desde arriba. El estilo es el mismo que el coche: cartoon redondeado,
@@ -129,129 +129,55 @@ void drawMoto(Canvas canvas, ui.Size size, Color color) {
   );
 }
 
-/// Coche de perfil SIN ruedas (modo "Subidas").
+/// Conductor del vehiculo (visto desde arriba).
 ///
-/// Las ruedas van aparte (`drawSideWheel`) para poder **girarlas** con la
-/// velocidad: asi el vehiculo parece de verdad en movimiento.
-void drawSideCarBody(Canvas canvas, ui.Size size, Color color) {
+/// Es el "personaje" que viaja con el nino: se ve la cabeza con el gorro
+/// asomando por la cabina.
+void drawDriverHead(
+  Canvas canvas,
+  ui.Size size, {
+  Offset? at,
+  double radiusFactor = 0.11,
+  Color hat = const Color(0xFF2B2D42),
+}) {
   final w = size.width;
-  final h = size.height;
-  final scale = w / 240;
+  final center = at ?? Offset(w * 0.5, size.height * 0.52);
+  final radius = w * radiusFactor;
 
-  // Carroceria: capo, habitaculo y maletero.
-  final body = Path()
-    ..moveTo(w * 0.06, h * 0.72)
-    ..lineTo(w * 0.08, h * 0.48)
-    ..quadraticBezierTo(w * 0.12, h * 0.4, w * 0.24, h * 0.38)
-    ..lineTo(w * 0.34, h * 0.38)
-    ..lineTo(w * 0.44, h * 0.16)
-    ..quadraticBezierTo(w * 0.48, h * 0.1, w * 0.56, h * 0.1)
-    ..lineTo(w * 0.7, h * 0.1)
-    ..quadraticBezierTo(w * 0.78, h * 0.1, w * 0.82, h * 0.2)
-    ..lineTo(w * 0.9, h * 0.4)
-    ..quadraticBezierTo(w * 0.96, h * 0.44, w * 0.96, h * 0.54)
-    ..lineTo(w * 0.96, h * 0.72)
-    ..close();
-  canvas.drawPath(body, fill(color));
-  canvas.drawPath(body, stroke(darken(color, 0.35), 6 * scale));
-
-  // Ventanas.
-  final window = Path()
-    ..moveTo(w * 0.47, h * 0.38)
-    ..lineTo(w * 0.53, h * 0.2)
-    ..lineTo(w * 0.62, h * 0.19)
-    ..lineTo(w * 0.66, h * 0.38)
-    ..close();
-  canvas.drawPath(window, fill(const Color(0xFFCDEEFF)));
-  canvas.drawPath(window, stroke(darken(color, 0.4), 4 * scale));
-
-  final rearWindow = Path()
-    ..moveTo(w * 0.68, h * 0.38)
-    ..lineTo(w * 0.73, h * 0.21)
-    ..lineTo(w * 0.79, h * 0.3)
-    ..lineTo(w * 0.82, h * 0.38)
-    ..close();
-  canvas.drawPath(rearWindow, fill(const Color(0xFFCDEEFF)));
-  canvas.drawPath(rearWindow, stroke(darken(color, 0.4), 4 * scale));
-
-  // Conductor: cabeza con casco.
-  canvas.drawCircle(
-    Offset(w * 0.57, h * 0.29),
-    w * 0.055,
-    fill(const Color(0xFFFFD7B0)),
+  // Pelo.
+  canvas.drawCircle(center, radius, fill(const Color(0xFF6B4A2F)));
+  // Gorro.
+  canvas.drawArc(
+    Rect.fromCircle(center: center.translate(0, -radius * 0.12), radius: radius),
+    math.pi,
+    math.pi,
+    true,
+    fill(hat),
   );
-  canvas.drawPath(
-    Path()
-      ..addArc(
-        Rect.fromCenter(
-          center: Offset(w * 0.57, h * 0.28),
-          width: w * 0.12,
-          height: h * 0.12,
-        ),
-        math.pi,
-        math.pi * 2,
-      ),
-    fill(StudioPalette.ink),
-  );
-
-  // Faro y piloto.
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.9, h * 0.46, w * 0.05, h * 0.09),
-      const Radius.circular(8),
-    ),
-    fill(const Color(0xFFFFF0A8)),
-  );
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.06, h * 0.48, w * 0.035, h * 0.08),
-      const Radius.circular(8),
-    ),
-    fill(const Color(0xFFFF6B6B)),
-  );
-
-  // Aleron.
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.04, h * 0.36, w * 0.1, h * 0.05),
-      const Radius.circular(8),
-    ),
-    fill(darken(color, 0.3)),
-  );
-
-  // Escape.
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.02, h * 0.62, w * 0.05, h * 0.035),
-      const Radius.circular(8),
-    ),
-    fill(const Color(0xFF9AA3B8)),
+  // Visera del gorro.
+  canvas.drawArc(
+    Rect.fromCircle(center: center, radius: radius * 0.86),
+    -math.pi / 2,
+    math.pi,
+    false,
+    stroke(hat, radius * 0.32),
   );
 }
 
-/// Rueda de perfil (modo "Subidas").
-///
-/// Se dibuja aparte para poder girarla con la velocidad del vehiculo.
-void drawSideWheel(Canvas canvas, ui.Size size) {
-  final center = Offset(size.width / 2, size.height / 2);
-  final radius = size.width * 0.44;
-
-  canvas.drawCircle(center, radius, fill(StudioPalette.tire));
-  canvas.drawCircle(center, radius, stroke(StudioPalette.ink, 5));
-  canvas.drawCircle(center, radius * 0.52, fill(const Color(0xFFE8EAF0)));
-  canvas.drawCircle(center, radius * 0.52, stroke(StudioPalette.ink, 3));
-
-  // Radios: dan la sensacion de rueda girando.
-  final paint = stroke(StudioPalette.ink, 3);
-  for (var i = 0; i < 5; i++) {
-    final angle = i / 5 * math.pi * 2;
-    canvas.drawLine(
-      center,
-      center + Offset(math.cos(angle), math.sin(angle)) * radius * 0.5,
-      paint,
-    );
-  }
-  canvas.drawCircle(center, radius * 0.16, fill(StudioPalette.ink));
+/// Calca pegada en la carrocerÃ­a del vehiculo.
+void drawBodySticker(
+  Canvas canvas,
+  ui.Size size, {
+  Offset? at,
+  double radiusFactor = 0.085,
+  Color color = const Color(0xFFFFD32A),
+}) {
+  final w = size.width;
+  final center = at ?? Offset(w * 0.5, size.height * 0.78);
+  final radius = w * radiusFactor;
+  final star = starPath(center, radius, radius * 0.45);
+  canvas.drawPath(star, fill(color));
+  canvas.drawPath(star, stroke(darken(color, 0.3), radius * 0.16));
 }
 
 /// Camion de bomberos visto desde arriba.
@@ -337,6 +263,22 @@ void drawTruck(Canvas canvas, ui.Size size, Color color) {
       stroke(darken(color, 0.35), 3 * scale),
     );
   }
+
+  // Conductor y calca: el camion nunca va vacio.
+  drawDriverHead(
+    canvas,
+    size,
+    at: Offset(w * 0.5, h * 0.34),
+    radiusFactor: 0.075,
+    hat: const Color(0xFFFFD32A),
+  );
+  drawBodySticker(
+    canvas,
+    size,
+    at: Offset(w * 0.5, h * 0.66),
+    radiusFactor: 0.055,
+    color: const Color(0xFFFFD32A),
+  );
 }
 
 /// Furgoneta de reparto vista desde arriba.
@@ -415,6 +357,21 @@ void drawVan(Canvas canvas, ui.Size size, Color color) {
   canvas.drawRect(
     Rect.fromLTWH(w * 0.3, h * 0.52, w * 0.4, h * 0.2),
     stroke(darken(color, 0.35), 3 * scale),
+  );
+
+  // Conductor y calca.
+  drawDriverHead(
+    canvas,
+    size,
+    at: Offset(w * 0.5, h * 0.22),
+    radiusFactor: 0.07,
+  );
+  drawBodySticker(
+    canvas,
+    size,
+    at: Offset(w * 0.5, h * 0.62),
+    radiusFactor: 0.05,
+    color: const Color(0xFFFF6B6B),
   );
 }
 
@@ -567,5 +524,228 @@ void drawBus(Canvas canvas, ui.Size size, Color color) {
   canvas.drawRect(
     Rect.fromLTWH(w * 0.18, h * 0.86, w * 0.64, h * 0.06),
     fill(const Color(0xFFFF6B6B)),
+  );
+
+  // Conductor y nanny con los ninos en las ventanas.
+  drawDriverHead(
+    canvas,
+    size,
+    at: Offset(w * 0.5, h * 0.16),
+    radiusFactor: 0.06,
+  );
+  for (final dy in [0.42, 0.56]) {
+    drawDriverHead(
+      canvas,
+      size,
+      at: Offset(w * 0.24, h * dy),
+      radiusFactor: 0.045,
+      hat: const Color(0xFFFF6B6B),
+    );
+    drawDriverHead(
+      canvas,
+      size,
+      at: Offset(w * 0.76, h * dy),
+      radiusFactor: 0.045,
+      hat: const Color(0xFFFF6B6B),
+    );
+  }
+}
+
+/// Coche de policia visto desde arriba.
+///
+/// Coche azul con sirena, franja blanca y calca de estrella.
+void drawPoliceCar(Canvas canvas, ui.Size size, Color color) {
+  final w = size.width;
+  final h = size.height;
+  const police = Color(0xFF2D6CDF);
+  final scale = w / 160;
+
+  drawEllipseShadow(
+    canvas,
+    Rect.fromCenter(
+      center: Offset(w * 0.5, h * 0.9),
+      width: w * 0.72,
+      height: h * 0.12,
+    ),
+    sigma: 10 * scale,
+  );
+
+  for (final wheelY in [h * 0.26, h * 0.63]) {
+    for (final side in [0.0, 1.0]) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            w * (0.1 + side * 0.78),
+            wheelY,
+            w * 0.12,
+            h * 0.21,
+          ),
+          Radius.circular(w * 0.06),
+        ),
+        fill(StudioPalette.tire),
+      );
+    }
+  }
+
+  final bodyPath = Path()
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.16, h * 0.1, w * 0.68, h * 0.8),
+        Radius.circular(w * 0.25),
+      ),
+    );
+  canvas.drawPath(bodyPath, fill(police));
+  canvas.drawPath(bodyPath, stroke(darken(police, 0.35), 5 * scale));
+
+  canvas.drawRect(
+    Rect.fromLTWH(w * 0.16, h * 0.52, w * 0.68, h * 0.1),
+    fill(const Color(0xFFFFFFFF)),
+  );
+
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.3, h * 0.32, w * 0.4, h * 0.36),
+      Radius.circular(w * 0.16),
+    ),
+    fill(darken(police, 0.18)),
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.34, h * 0.35, w * 0.32, h * 0.15),
+      Radius.circular(w * 0.1),
+    ),
+    fill(const Color(0xFFCDEEFF)),
+  );
+
+  // Sirena.
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.38, h * 0.16, w * 0.1, h * 0.12),
+      Radius.circular(w * 0.04),
+    ),
+    fill(const Color(0xFFFF6B6B)),
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.54, h * 0.16, w * 0.1, h * 0.12),
+      Radius.circular(w * 0.04),
+    ),
+    fill(const Color(0xFF4D8DFF)),
+  );
+
+  for (final lampX in [w * 0.22, w * 0.62]) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(lampX, h * 0.13, w * 0.16, h * 0.09),
+        Radius.circular(w * 0.05),
+      ),
+      fill(const Color(0xFFFFF0A8)),
+    );
+  }
+
+  drawDriverHead(
+    canvas,
+    size,
+    at: Offset(w * 0.5, h * 0.56),
+    radiusFactor: 0.085,
+    hat: police,
+  );
+  drawBodySticker(
+    canvas,
+    size,
+    at: Offset(w * 0.32, h * 0.68),
+    radiusFactor: 0.06,
+    color: const Color(0xFFFFD32A),
+  );
+}
+
+/// Ambulancia vista desde arriba.
+///
+/// Camioneta blanca con cruz roja, sirena y calca.
+void drawAmbulance(Canvas canvas, ui.Size size, Color color) {
+  final w = size.width;
+  final h = size.height;
+  const white = Color(0xFFF4F6FB);
+  final scale = w / 160;
+
+  drawEllipseShadow(
+    canvas,
+    Rect.fromCenter(
+      center: Offset(w * 0.5, h * 0.9),
+      width: w * 0.76,
+      height: h * 0.12,
+    ),
+    sigma: 10 * scale,
+  );
+
+  for (final wheelY in [h * 0.24, h * 0.68]) {
+    for (final side in [0.0, 1.0]) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            w * (0.08 + side * 0.8),
+            wheelY,
+            w * 0.12,
+            h * 0.19,
+          ),
+          Radius.circular(w * 0.06),
+        ),
+        fill(StudioPalette.tire),
+      );
+    }
+  }
+
+  final bodyPath = Path()
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.14, h * 0.08, w * 0.72, h * 0.84),
+        Radius.circular(w * 0.2),
+      ),
+    );
+  canvas.drawPath(bodyPath, fill(white));
+  canvas.drawPath(bodyPath, stroke(darken(white, 0.3), 5 * scale));
+
+  canvas.drawRect(
+    Rect.fromLTWH(w * 0.14, h * 0.56, w * 0.72, h * 0.12),
+    fill(const Color(0xFFFF4757)),
+  );
+  canvas.drawRect(
+    Rect.fromLTWH(w * 0.44, h * 0.38, w * 0.1, h * 0.34),
+    fill(const Color(0xFFFF4757)),
+  );
+  canvas.drawRect(
+    Rect.fromLTWH(w * 0.33, h * 0.5, w * 0.32, h * 0.1),
+    fill(const Color(0xFFFF4757)),
+  );
+
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.28, h * 0.14, w * 0.44, h * 0.24),
+      Radius.circular(w * 0.12),
+    ),
+    fill(const Color(0xFFCDEEFF)),
+  );
+
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.4, h * 0.1, w * 0.2, h * 0.05),
+      Radius.circular(w * 0.03),
+    ),
+    fill(const Color(0xFF4D8DFF)),
+  );
+
+  drawDriverHead(
+    canvas,
+    size,
+    at: Offset(w * 0.5, h * 0.28),
+    radiusFactor: 0.075,
+    hat: const Color(0xFFFF4757),
+  );
+  drawBodySticker(
+    canvas,
+    size,
+    at: Offset(w * 0.32, h * 0.78),
+    radiusFactor: 0.055,
+    color: const Color(0xFF4D8DFF),
   );
 }

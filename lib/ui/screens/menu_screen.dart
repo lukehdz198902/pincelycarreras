@@ -11,7 +11,6 @@ import '../../data/providers/progress_provider.dart';
 import '../../data/services/audio_service.dart';
 import '../../shared/context_extensions.dart';
 import 'coloring_screen.dart';
-import 'climb_screen.dart';
 import 'level_select_screen.dart';
 import 'sticker_book_screen.dart';
 import 'studio_screen.dart';
@@ -99,21 +98,6 @@ class _MenuScreenState extends State<MenuScreen>
                           onPressed: () => _open(
                             context,
                             const LevelSelectScreen(),
-                          ),
-                        ),
-                        MenuTile(
-                          compact: !isWide,
-                          assetPath: AssetPaths.iconPlay,
-                          label: 'Subidas',
-                          colors: const [
-                            AppPalette.green,
-                            AppPalette.lime,
-                          ],
-                          badge: '360°',
-                          badgeColor: AppPalette.green,
-                          onPressed: () => _open(
-                            context,
-                            const ClimbScreen(),
                           ),
                         ),
                         MenuTile(

@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pincel_y_carreras/data/providers/progress_provider.dart';
 import 'package:pincel_y_carreras/data/services/progress_service.dart';
 import 'package:pincel_y_carreras/ui/screens/coloring_screen.dart';
-import 'package:pincel_y_carreras/ui/screens/climb_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/garage_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/level_select_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/studio_screen.dart';
@@ -68,10 +67,6 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('el modo subidas no se desborda', (tester) async {
-      await pumpSmall(tester, const ClimbScreen());
-      expect(tester.takeException(), isNull);
-    });
 
     testWidgets('el taller no se desborda', (tester) async {
       await pumpSmall(tester, const StudioScreen());

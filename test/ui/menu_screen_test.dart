@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pincel_y_carreras/data/providers/progress_provider.dart';
 import 'package:pincel_y_carreras/data/services/progress_service.dart';
 import 'package:pincel_y_carreras/ui/screens/coloring_screen.dart';
-import 'package:pincel_y_carreras/ui/screens/climb_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/level_select_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/menu_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/sticker_book_screen.dart';
@@ -36,11 +35,11 @@ void main() {
   }
 
   group('MenuScreen', () {
-    testWidgets('muestra cinco secciones grandes con icono', (tester) async {
+    testWidgets('muestra cuatro secciones grandes con icono', (tester) async {
       await pumpMenu(tester);
 
       final tiles = find.byType(MenuTile);
-      expect(tiles, findsNWidgets(5));
+      expect(tiles, findsNWidgets(4));
 
       // Ninguna tarjeta puede ser mas pequena de 60 dp (accesibilidad).
       for (final element in tiles.evaluate()) {
@@ -67,17 +66,10 @@ void main() {
       expect(find.byType(LevelSelectScreen), findsOneWidget);
     });
 
-    testWidgets('un toque lleva al modo subidas', (tester) async {
-      await pumpMenu(tester);
-      await tester.tap(find.byType(MenuTile).at(2));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(find.byType(ClimbScreen), findsOneWidget);
-    });
 
     testWidgets('un toque lleva al taller', (tester) async {
       await pumpMenu(tester);
-      await tester.tap(find.byType(MenuTile).at(3));
+      await tester.tap(find.byType(MenuTile).at(2));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(StudioScreen), findsOneWidget);

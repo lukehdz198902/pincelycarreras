@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 
 import 'studio.dart';
+import 'vehicles.dart';
 
 /// Dibuja un coche visto desde arriba (la camara es cenital).
 ///
@@ -135,6 +136,20 @@ void drawCar(Canvas canvas, ui.Size size, Color color) {
       fill(const Color(0xFFFF6B6B)),
     );
   }
+
+  // Conductor asomando por la cabina y calca en la puerta.
+  drawDriverHead(
+    canvas,
+    size,
+    at: Offset(w * 0.5, h * 0.56),
+    radiusFactor: 0.085,
+  );
+  drawBodySticker(
+    canvas,
+    size,
+    at: Offset(w * 0.34, h * 0.7),
+    radiusFactor: 0.055,
+  );
 }
 
 /// Banderin de vuelta (no es la meta final).

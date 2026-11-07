@@ -86,11 +86,9 @@ class GarageScreen extends StatelessWidget {
       return;
     }
     progress.selectVehicle(vehicle.id);
-    if (onVehicleSelected != null) {
-      onVehicleSelected!(vehicle.id);
-      return;
-    }
-    Navigator.of(context).maybePop();
+    // Se devuelve el vehiculo para que la pantalla que lo abrio lo aplique
+    // al instante (sin salir y volver a entrar).
+    Navigator.of(context).pop(vehicle.id);
   }
 }
 

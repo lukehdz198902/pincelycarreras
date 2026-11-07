@@ -235,6 +235,90 @@ void main() {
       expect(game.carX, greaterThan(startX));
     });
 
+    testWidgets('el acelerador se mantiene pulsado para avanzar', (tester) async {
+      await pumpRacing(tester);
+
+      final game = tester
+          .widget<GameWidget<RacingGame>>(find.byType(GameWidget<RacingGame>))
+          .game!;
+      await waitForGame(tester, game);
+
+      // Sin tocar el acelerador el coche se queda quieto.
+      final stopped = game.currentSpeed;
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(game.currentSpeed, lessThanOrEqualTo(stopped));
+
+      // Manteniendo pulsado el acelerador el coche acelera.
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey<String>('accelerate'))),
+      );
+      await tester.pump();
+      expect(game.accelerating, isTrue);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(game.currentSpeed, greaterThan(stopped));
+
+      await gesture.up();
+      await tester.pump();
+      expect(game.accelerating, isFalse);
+    });
+
+    testWidgets('elegir un vehiculo en el garaje se aplica al instante',
+        (tester) async {
+      await pumpRacing(tester);
+
+      final before = tester
+          .widget<GameWidget<RacingGame>>(find.byType(GameWidget<RacingGame>))
+          .game!
+          .carAssetPath;
+
+      // Abrir el garaje desde la propia carrera.
+      await tester.tap(find.byType(CarThumbnail));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(GarageScreen), findsOneWidget);
+
+      // "Rayo" (azul) viene desbloqueado de serie.
+      await tester.tap(find.text('Rayo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      // Se vuelve a la carrera **sin salir de la pantalla**.
+      expect(find.byType(GarageScreen), findsNothing);
+
+      final after = tester
+          .widget<GameWidget<RacingGame>>(find.byType(GameWidget<RacingGame>))
+          .game!
+          .carAssetPath;
+      expect(after, isNot(before));
+      expect(after, contains('car_azul'));
+    });
+
+    testWidgets('el HUD muestra la velocidad en vivo', (tester) async {
+      await pumpRacing(tester);
+
+      final game = tester
+          .widget<GameWidget<RacingGame>>(find.byType(GameWidget<RacingGame>))
+          .game!;
+      await waitForGame(tester, game);
+
+      // El HUD empieza en 0 porque el coche esta parado.
+      expect(find.text('0'), findsWidgets);
+
+      // Al acelerar, el numero del HUD cambia (no se queda congelado).
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey<String>('accelerate'))),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(game.currentSpeed, greaterThan(0));
+      expect(find.text('${game.currentSpeed.round()}'), findsOneWidget);
+
+      await gesture.up();
+      await tester.pump();
+    });
+
     testWidgets('el contador de estrellas permanece visible', (tester) async {
       await pumpRacing(tester);
 

@@ -1,30 +1,42 @@
+import 'dart:math' as math;
+
 /// Modelo matematico de la velocidad de la pista.
 ///
-/// La velocidad es **constante**: el niño no tiene que ir mas rapido ni
-/// mas despacio a mitad de carrera y la pista no "se le escapa". Cada mundo
-/// tiene su velocidad (via `speedScale`), pero dentro de un mundo **nunca
-/// cambia**.
+/// El niño **marca el ritmo**: mantiene pulsado el acelerador para avanzar y
+/// suelta o frena cuando quiere. Por eso la velocidad **no cambia sola**.
 ///
 /// Es codigo puro (sin Flutter): se puede testear de forma aislada.
 class RaceTiming {
   const RaceTiming._();
 
-  /// Velocidad base de la pista (px/s).
+  /// Velocidad maxima del mundo (con el acelerador a tope), en px/s.
   ///
-  /// Deliberadamente suave: el niño pequeno debe poder seguir el ritmo.
-  static const double baseSpeed = 150;
+  /// Es suave a proposito: el niño pequeño tiene que poder seguir el ritmo.
+  static const double maxSpeed = 180;
 
-  /// Velocidad a los [seconds] segundos.
-  ///
-  /// Siempre la misma: la carrera no acelera ni frena sola.
+  /// Aceleracion al pulsar el acelerador (px/s por segundo).
+  static const double acceleration = 260;
+
+  /// Freno (px/s por segundo).
+  static const double braking = 420;
+
+  /// Rozamiento: al soltar el acelerador el coche baja de velocidad (px/s^2).
+  static const double coasting = 190;
+
+  /// Velocidad a los [seconds] segundos, a aceleracion constante.
   static double speedAt(double seconds, double speedScale) =>
-      baseSpeed * speedScale;
+      math.min(maxSpeed * speedScale, acceleration * seconds);
 
-  /// Distancia recorrida en [seconds] segundos **sin chocar**.
-  ///
-  /// Si el nino choca, el mundo se para: la carrera tarda mas, nunca menos.
-  static double distanceAfter(double seconds, double speedScale) =>
-      baseSpeed * speedScale * seconds;
+  /// Distancia maxima recorrida en [seconds] segundos acelerando siempre.
+  static double distanceAfter(double seconds, double speedScale) {
+    final vmax = maxSpeed * speedScale;
+    final rampTime = vmax / acceleration;
+    if (seconds <= rampTime) {
+      return 0.5 * acceleration * seconds * seconds;
+    }
+    final rampDistance = 0.5 * acceleration * rampTime * rampTime;
+    return rampDistance + vmax * (seconds - rampTime);
+  }
 
   /// Distancia de cada tramo del recorrido.
   ///
@@ -41,50 +53,14 @@ class RaceTiming {
     return distanceAfter(targetSeconds.toDouble(), speedScale) / laps;
   }
 
-  /// Tiempo necesario para recorrer [distance].
-  static double timeForDistance(double distance, double speedScale) =>
-      distance / (baseSpeed * speedScale);
-}
-
-/// Velocidades de los modos de juego (px/s).
-class ClimbSpeed {
-  const ClimbSpeed._();
-
-  /// Velocidad maxima al acelerar a tope.
-  static const double maxSpeed = 210;
-
-  /// Velocidad cuando no se pulsa nada (el vehiculo sigue rodando).
-  static const double cruiseSpeed = 70;
-
-  /// Velocidad minima al frenar.
-  static const double minSpeed = 0;
-
-  /// Aceleracion al pulsar el boton de acelerar (px/s por segundo).
-  static const double acceleration = 150;
-
-  /// Freno (px/s por segundo).
-  static const double braking = 260;
-
-  /// Gravedad del mundo (px/s^2): decide como de alto vuela el vehiculo.
-  static const double gravity = 900;
-
-  /// Velocidad minima para despegar en un rasante.
-  static const double minLaunchSpeed = 40;
-
-  /// ¿El vehiculo tiene que **despegar** en este frame?
-  ///
-  /// El terreno cae [drop] pixeles de golpe. Si cae mas rapido de lo que la
-  /// gravedad permite seguir (en un frame), el vehiculo **se queda en el
-  /// aire** y empieza la parabola: ese es el salto.
-  static bool shouldLeaveGround({
-    required double drop,
-    required double dt,
-    required double speed,
-  }) {
-    if (speed < minLaunchSpeed || drop <= 0) {
-      return false;
+  /// Tiempo necesario para recorrer [distance] acelerando siempre.
+  static double timeForDistance(double distance, double speedScale) {
+    final vmax = maxSpeed * speedScale;
+    final rampTime = vmax / acceleration;
+    final rampDistance = 0.5 * acceleration * rampTime * rampTime;
+    if (distance <= rampDistance) {
+      return math.sqrt(2 * distance / acceleration);
     }
-    final freeFall = 0.5 * gravity * dt * dt;
-    return drop > freeFall + 1.5;
+    return rampTime + (distance - rampDistance) / vmax;
   }
 }

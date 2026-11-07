@@ -1,12 +1,11 @@
 # Pincel & Carreras
 
-Juego móvil 2D infantil (3-8 años) con **Flutter + Flame**. Tres modos de juego:
+Juego móvil 2D infantil (3-8 años) con **Flutter + Flame**. Dos modos de juego:
 
 - **Estudio de pintura** — dibuja y colorea 9 láminas con pincel, bote de pintura (relleno por región) y borrador.
-- **Carreras** — conducción top-down en 3 carriles con **12 mundos**, 10 vehículos (coches, moto, camión, bus, tractor y furgoneta), flechas visibles en pantalla y ambiente animado propio en cada mundo.
-- **Subidas** — modo lateral tipo *Hill Climb Racing*: acelerar y frenar, colinas y **vueltas de 360°**.
+- **Carreras** — conducción top-down en 3 carriles con **acelerador que el niño mantiene pulsado**, **12 mundos**, **12 vehículos** (coches, moto, camión, bus, tractor, furgoneta, policía y ambulancia), flechas visibles en pantalla, HUD de velocidad y progreso y ambiente animado propio en cada mundo.
 
-Además: un **taller** para pintar calcas y elegir pasajero, un **garaje** con 10 vehículos y un libro de pegatinas.
+Además: un **taller** para pintar calcas y elegir pasajero, un **garaje** con 12 vehículos y un libro de pegatinas.
 
 Cero texto en el flujo principal, cero anuncios, cero compras, cero red: **100 % offline**.
 
@@ -87,9 +86,9 @@ aparece el menú. Un toque la salta.
 
 ### Menú
 
-Tres tarjetas grandes con icono: **Pintar**, **Carreras** y **Pegatinas**. Cada tarjeta
-muestra un contador (láminas, niveles superados, pegatinas). En la esquina superior
-derecha están el contador de estrellas y el **botón de sonido**.
+Cuatro tarjetas grandes con icono: **Pintar**, **Carreras**, **Taller** y **Pegatinas**. Cada
+tarjeta muestra un contador (láminas, niveles superados, pegatinas). En la esquina superior
+derecha están el contador de estrellas, el **botón de sonido** y el **botón de ayuda (?)**.
 
 ### Estudio de pintura
 
@@ -99,7 +98,7 @@ derecha están el contador de estrellas y el **botón de sonido**.
 | Botón **bote** | Rellena por región toda la zona cerrada bajo el dedo |
 | Botón **borrador** | Borra el trazo, **sin** damaging la lámina |
 | Botón de color | Abre la paleta (16 colores; 4 se desbloquean con estrellas) |
-| Botón de lámina | Cambia entre las 6 láminas (3 se desbloquean con estrellas) |
+| Botón de lámina | Cambia entre las 9 láminas (3 se desbloquean con estrellas) |
 | Botón de papelera | Borra el dibujo (con confirmación) |
 
 El dibujo se **guarda solo** cada 4 segundos y al salir de la pantalla. No hay tiempo
@@ -121,19 +120,6 @@ izquierda) abre el **garaje**.
 | 9-10 | Puerto · Volcán | Olas · brasas |
 | 11-12 | Espacio · Estadio | Estrellas fugaces · confeti |
 
-### Subidas (modo "Hill Climb")
-
-El botón **Subidas** abre un segundo tipo de carrera **en vista de lado**: el vehículo
-recorre el terreno hacia la derecha, subiendo y bajando colinas y dando **vueltas de 360°**
-(¡pasa del revés!). Hay dos botones gigantes: **acelerar** y **frenar**.
-
-- El vehículo **tiene peso**: al llegar a un rasante **despega**, vuela y aterriza
-  aplastando la suspensión (con polvo y un pequeño temblor de cámara).
-- 6 subidas (Colinas, Dunas, Luna, Cumbre, Tronco, Ruedas), **todas abiertas**.
-- Estrellas repartidas por el recorrido, HUD en vivo de metros y velocidad y resumen al
-  llegar a la meta.
-- No hay derrota: el vehículo nunca se cae.
-
 ### Taller (tuning)
 
 El botón **Taller** permite **pintar el carrito**: elegir una **calca** (rayas, estrella,
@@ -144,17 +130,29 @@ llama, corazón o número), su **color** (12 colores, se tiñe en el momento) y 
 
 | Acción | Resultado |
 |---|---|
+| **Mantener pulsado 🟢 Acelerar** | El coche acelera hasta la velocidad máxima del mundo |
+| **Mantener pulsado 🔴 Frenar** | El coche frena con fuerza hasta pararse |
+| **Soltar el acelerador** | El coche rueda y frena solo |
 | **Flecha ⟵ / ⟶ en pantalla** | Cambia de carril (el niño ve dónde tocar) |
 | **Arrastrar el dedo** | Mueve el coche de forma continua por toda la carretera |
 | **Toque en la mitad izquierda / derecha** | También cambia de carril |
-| **Botón de vehículo** (arriba izquierda) | Abre el **garaje** para cambiar de coche, moto, camión, bus, tractor o furgoneta |
+| **Botón de vehículo** (arriba izquierda) | Abre el **garaje**; el cambio se aplica **al instante** |
 | **Botón de pausa** | Pausa la partida (toca la pantalla para seguir) |
 
+- **El niño marca el ritmo**: la velocidad depende de si mantiene el acelerador pulsado.
+  Suena un "vroom" (`motor.wav`) al arrancar desde parado.
+- **HUD** arriba: número de velocidad, barra verde de velocidad y barra violeta de
+  **progreso hacia la meta**.
+- **Efectos**: polvo en las ruedas, **líneas de viento** que crecen con la velocidad y
+  **chispas** al recoger una estrella.
 - El vehículo **nunca se reinicia** al chocar: queda aturdido 1 s y continúa.
 - Las **estrellas** se recogen al pasar por encima y suman al contador.
 - Cada mundo **tiene final**: la meta cierra la carrera y aparece el resumen con las
   estrellas, el tiempo y el **récord** del niño.
-- Cada carrera dura **más de un minuto** (65–78 s según el mundo; si choca, más).
+- Cada carrera dura **más de un minuto** (65–78 s según el mundo; si choca o no acelera,
+  más).
+- El juego **no se ralentiza** con el tiempo de uso: los obstáculos, las estrellas y los
+  banderines tienen topes (≤ 24, ≤ 20 y ≤ 6 vivos a la vez).
 - La música de fondo cambia automáticamente según el modo y **se calla** al salir.
 
 ### Libro de pegatinas (trofeos)
@@ -178,20 +176,27 @@ ni analítica.
 |---|---|
 | Vehículo *Tortuga* | 5 estrellas |
 | Pegatina *Estrella* | 5 estrellas |
-| Pegatina *Corazón* | 10 estrellas |
-| Lámina *La casa* | 10 estrellas |
 | Vehículo *Sol* | 10 estrellas |
-| Vehículo *Chispa* (moto) | 12 estrellas |
+| Lámina *La casa* | 10 estrellas |
+| Pegatina *Corazón* | 10 estrellas |
 | Pegatina *Flecha* | 12 estrellas |
-| Vehículo *Camión* | 18 estrellas |
+| Vehículo *Chispa* (moto) | 14 estrellas |
 | Pegatina *Arcoíris* | 15 estrellas |
+| Vehículo *Camión* | 18 estrellas |
 | Pegatina *Globo* | 18 estrellas |
 | Lámina *El dinosaurio* | 20 estrellas |
-| Vehículo *Cohete* | 24 estrellas |
-| Vehículo *Furgoneta* | 28 estrellas |
-| Vehículo *Tractor* | 32 estrellas |
-| Vehículo *Bus escolar* | 36 estrellas |
+| Vehículo *Policía* | 22 estrellas |
+| Pegatina *Corona* | 25 estrellas |
+| Vehículo *Furgoneta* | 26 estrellas |
 | Lámina *La ciudad* | 30 estrellas |
+| Vehículo *Ambulancia* | 30 estrellas |
+| Pegatina *Trofeo* | 30 estrellas |
+| Vehículo *Tractor* | 34 estrellas |
+| Pegatina *Medalla* | 35 estrellas |
+| Vehículo *Bus escolar* | 38 estrellas |
+| Pegatina *Cohete* | 40 estrellas |
+| Vehículo *Cohete* (coche violeta) | 42 estrellas |
+| Pegatina *Cometa* | 45 estrellas |
 
 Además hay 4 colores de pintura extra (bronce, esmeralda, dorado y plata) que se
 desbloquean con 10, 15, 20 y 30 estrellas.
@@ -225,18 +230,18 @@ Game-PincelyCarreras/
 │   │   └── services/          # ProgressService, AudioService, AssetService
 │   ├── game/                  # Lógica de juego (SIN material.dart)
 │   │   ├── coloring/          # Lienzo, pincel, relleno por región (flood fill)
-│   │   └── racing/            # RacingGame, ClimbGame, ClimbTerrain, Car, LevelAmbience, ...
+│   │   └── racing/            # RacingGame, RaceTiming, Car, LevelAmbience, VehicleTrail, ...
 │   ├── ui/                    # Pantallas y widgets de Flutter
-│   │   ├── screens/            # splash, menu, level_select, garage, studio, climb, coloring, racing, sticker_book
-│   │   └── widgets/            # MenuTile, BigButton, ColorPicker, ToolPicker, StarCounter
+│   │   ├── screens/            # splash, menu, level_select, garage, studio, coloring, racing, sticker_book
+│   │   └── widgets/            # MenuTile, BigButton, HelpButton, ColorPicker, ToolPicker, StarCounter
 │   └── shared/                # Extensiones de BuildContext
 ├── assets/
-│   ├── images/                # 76 PNG generados (cars, tracks, canvas, stickers, decals, characters, ui, ...)
-│   └── audio/                 # 3 músicas + 7 SFX generados
+│   ├── images/                # 75 PNG generados (cars, tracks, canvas, stickers, decals, characters, ui, ...)
+│   └── audio/                 # 2 músicas + 8 SFX generados
 ├── tool/
 │   ├── generate_audio.dart    # Sintetizador de la banda sonora
 │   └── asset_studio/          # Generador de los PNG
-└── test/                      # 18 ficheros, 137 casos de prueba
+└── test/                      # 16 ficheros, 122 casos de prueba
 ```
 
 **Regla dura de arquitectura:** `lib/game/` **no** importa `flutter/material.dart` ni
@@ -273,13 +278,13 @@ placeholders. Es reproducible y versionable.
 ```bash
 cd tool/asset_studio
 flutter pub get
-flutter test        # escribe los 71 PNG en assets/images/
+flutter test        # escribe los PNG en assets/images/
 ```
 
 ### Audio (WAV)
 
 ```bash
-dart run tool/generate_audio.dart    # escribe 2 músicas + 7 SFX en assets/audio/
+dart run tool/generate_audio.dart    # escribe 2 músicas + 8 SFX en assets/audio/
 ```
 
 Formato de salida: WAV PCM 16 bits mono a 22050 Hz, compatible con `audioplayers`.
@@ -294,7 +299,7 @@ Formato de salida: WAV PCM 16 bits mono a 22050 Hz, compatible con `audioplayers
 
 ```bash
 flutter analyze        # debe salir: No issues found!
-flutter test           # 137 casos
+flutter test           # 122 casos
 ```
 
 Cobertura actual:
@@ -304,20 +309,18 @@ Cobertura actual:
 | `test/game/car_test.dart` | Cambio de carril, colisiones, aturdimiento |
 | `test/game/flood_fill_test.dart` | Relleno por región, regiones ya pintadas |
 | `test/game/track_generator_test.dart` | Generación de obstáculos y estrellas |
-| `test/game/race_timing_test.dart` | Velocidad **constante** y **cada mundo dura ≥ 1 minuto** |
-| `test/game/climb_terrain_test.dart` | Terreno de subidas: colinas, loops de 360°, continuidad |
+| `test/game/race_timing_test.dart` | Modelo del acelerador y **cada mundo dura ≥ 1 minuto** |
 | `test/models/progress_test.dart` | Cálculo de estrellas, récords y desbloqueos |
-| `test/models/levels_test.dart` | 12 mundos, 10 vehículos y progresión |
+| `test/models/levels_test.dart` | 12 mundos, 12 vehículos y progresión |
 | `test/services/progress_service_test.dart` | Persistencia en `shared_preferences` |
-| `test/ui/menu_screen_test.dart` | Navegación del menú (5 secciones) |
+| `test/ui/menu_screen_test.dart` | Navegación del menú (4 secciones) |
 | `test/ui/level_select_screen_test.dart` | Mapa de mundos y desbloqueos |
 | `test/ui/garage_screen_test.dart` | Garaje: vehículos, candados y selección |
 | `test/ui/studio_screen_test.dart` | Taller: calcas, colores y personajes |
-| `test/ui/climb_screen_test.dart` | Modo subidas: acelerar y frenar |
 | `test/ui/coloring_screen_test.dart` | **Cambio de lámina** (regresión del lienzo en blanco) |
 | `test/ui/splash_screen_test.dart` | Pantalla de inicio y salto manual |
-| `test/ui/racing_screen_test.dart` | Carreras: layout, cámara, flechas, final, parada al salir |
-| `test/ui/small_screen_test.dart` | Las 9 pantallas sin desbordes en un móvil de 320 dp |
+| `test/ui/racing_screen_test.dart` | Carreras: layout, cámara, flechas, **acelerador mantenido**, **HUD en vivo**, garaje, final, parada al salir |
+| `test/ui/small_screen_test.dart` | Las pantallas sin desbordes en un móvil de 320 dp |
 | `test/ui/screen_capture_test.dart` | Captura PNG de cada pantalla a `build/screenshots/` |
 | `test/helpers/painting_fixture.dart` | Fixtures compartidos |
 

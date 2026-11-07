@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pincel_y_carreras/data/providers/progress_provider.dart';
 import 'package:pincel_y_carreras/data/services/progress_service.dart';
 import 'package:pincel_y_carreras/ui/screens/coloring_screen.dart';
-import 'package:pincel_y_carreras/ui/screens/climb_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/garage_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/level_select_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/studio_screen.dart';
@@ -117,11 +116,6 @@ void main() {
       await capture(tester, 'taller');
     });
 
-    testWidgets('el modo subidas se dibuja sin errores', (tester) async {
-      await pumpScreen(tester, const ClimbScreen());
-      expect(tester.takeException(), isNull);
-      await capture(tester, 'subidas');
-    });
 
     testWidgets('el estudio de pintura se dibuja sin errores', (tester) async {
       await pumpScreen(tester, const ColoringScreen());

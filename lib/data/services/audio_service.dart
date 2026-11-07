@@ -27,6 +27,9 @@ enum SfxKind {
 
   /// Campanilla de bienvenida de la pantalla de inicio.
   welcome,
+
+  /// Motor: "vroom" al arrancar a acelerar.
+  engine,
 }
 
 /// Pistas de musica de fondo.
@@ -36,9 +39,6 @@ enum BgmTrack {
 
   /// Musica rítmica de las carreras.
   racing,
-
-  /// Motor del modo "Subidas" (zumbido en bucle).
-  engine,
 }
 
 /// Capa de audio del juego.
@@ -59,9 +59,6 @@ class AudioService {
 
   /// Volumen de la musica de carreras.
   static const double racingVolume = 0.30;
-
-  /// Volumen del motor del modo subidas.
-  static const double engineVolume = 0.22;
 
   final Map<SfxKind, List<DateTime>> _recentPlays = {};
   bool _initialized = false;
@@ -107,12 +104,10 @@ class AudioService {
     final path = switch (track) {
       BgmTrack.painting => AssetPaths.music('painting_loop'),
       BgmTrack.racing => AssetPaths.music('racing_loop'),
-      BgmTrack.engine => AssetPaths.music('motor_loop'),
     };
     final volume = switch (track) {
       BgmTrack.painting => paintingVolume,
       BgmTrack.racing => racingVolume,
-      BgmTrack.engine => engineVolume,
     };
     _currentTrack = track;
     _bgmPaused = false;
@@ -175,6 +170,7 @@ class AudioService {
       SfxKind.unlock => AssetPaths.sfx('unlock'),
       SfxKind.uiTap => AssetPaths.sfx('ui_tap'),
       SfxKind.welcome => AssetPaths.sfx('welcome'),
+      SfxKind.engine => AssetPaths.sfx('motor'),
     };
     unawaited(_playSfx(path));
   }

@@ -57,7 +57,7 @@ Documento técnico complementario a [`GDD.md`](GDD.md) y a [`AGENTS.md`](../AGEN
 
 | Módulo | Motor | Motivo |
 |---|---|---|
-| **Carreras** | **Flame** (`FlameGame`) | Bucle de juego, componentes, colisiones, tweens, scroll infinito y `MultiTouchTapDetector` para el control táctil. Flame aporta de serie lo que el modo carreras necesita. |
+| **Carreras** | **Flame** (`FlameGame`) | Bucle de juego, componentes, colisiones, tweens, scroll infinito y `PanDetector` para el control táctil. Flame aporta de serie lo que el modo carreras necesita. |
 | **Pintura** | **Flutter puro** (`CustomPainter`) | Un lienzo exige control total del gesto: trazo continuo con suavizado, relleno por región y borrado que **parte** los trazos. Flame solo añadiría fricción. El `CustomPainter` da coordenadas en espacio de lámina, cache de `Path` y `RepaintBoundary` de forma nativa. |
 
 Por eso `lib/game/coloring/` **no** es Flame, pero sigue la regla dura:
@@ -67,8 +67,8 @@ Por eso `lib/game/coloring/` **no** es Flame, pero sigue la regla dura:
 
 | Productor | Consumidor | Contrato |
 |---|---|---|
-| `ui/RacingScreen` | `game/RacingGame` | `RacingGame(onStarCollected:, onCrash:, onLapCompleted:, onLaneChange:)` |
-| `game/RacingGame` | `ui/RacingScreen` | `void Function(int)` y `VoidCallback` |
+| `ui/RacingScreen` | `game/RacingGame` | `RacingGame(carAssetPath:, trackAssetPath:, onStarCollected:, onCrash:, onLapCompleted:, onRaceFinished:, ...)` + los flags `accelerating` / `braking` |
+| `game/RacingGame` | `ui/RacingScreen` | `void Function(int)`, `VoidCallback` y los getters `currentSpeed` / `maxSpeed` / `progress` |
 | `ui/ColoringScreen` | `game/coloring/PaintCanvas` | `PaintCanvas(brush:, painting:, onPaintingChanged:, onPaintFeedback:)` |
 | `game/coloring/PaintCanvas` | `services/AudioService` | `AudioService.playSfx(SfxKind.pop)` |
 | `ui/*` | `services/ProgressService` | `load()` / `save()` (debounce 500 ms) / `saveDrawing()` |
@@ -114,9 +114,7 @@ lib/
 │   └── racing/
 │       ├── racing_game.dart         # FlameGame: scroll, spawn, colisiones, meta
 │       ├── race_timing.dart         # Modelo puro de velocidad y distancia
-│       ├── climb_game.dart          # FlameGame del modo "Subidas" (vista de lado)
-│       ├── climb_terrain.dart       # Terreno con colinas y loops de 360°
-│       ├── vehicle_trail.dart       # Estela de polvo del vehículo
+│       ├── vehicle_trail.dart       # Estela, líneas de viento y chispas
 │       ├── car.dart                 # Componente del coche + carriles
 │       ├── lane.dart                # Enum de 3 carriles
 │       ├── obstacle.dart            # Cono / charco / roca
@@ -131,13 +129,13 @@ lib/
 │   │   ├── level_select_screen.dart # Mapa de los 12 mundos
 │   │   ├── garage_screen.dart       # Garaje de vehículos
 │   │   ├── studio_screen.dart       # Taller: calca, color y pasajero
-│   │   ├── climb_screen.dart        # Modo "Subidas" (acelerar / frenar)
 │   │   ├── coloring_screen.dart
 │   │   ├── racing_screen.dart
 │   │   └── sticker_book_screen.dart
 │   └── widgets/
 │       ├── menu_tile.dart           # Tarjeta grande del menú (icono + etiqueta)
 │       ├── big_button.dart          # Botón grande (rebote + SFX + háptica)
+│       ├── help_button.dart         # Botón "?" de ayuda en pantalla
 │       ├── color_picker.dart
 │       ├── tool_picker.dart
 │       ├── star_counter.dart
@@ -148,16 +146,16 @@ lib/
 
 assets/
 ├── images/
-│   ├── cars/       (5 sprites)
-│   ├── tracks/     (6 fondos + asfalto + bordillo + 3 obstáculos + meta)
+│   ├── cars/       (12 sprites)
+│   ├── tracks/     (12 fondos + 4 asfaltos + 4 bordillos + 3 obstáculos)
 │   ├── items/      (estrella)
-│   ├── canvas/     (6 láminas para colorear)
-│   ├── stickers/   (6 pegatinas)
-│   ├── ui/         (9 iconos)
+│   ├── canvas/     (9 láminas para colorear)
+│   ├── stickers/   (10 pegatinas)
+│   ├── ui/         (9 iconos + logo)
 │   └── palette/    (paleta.png)
 └── audio/
     ├── music/      (2 loops)
-    └── sfx/        (7 efectos)
+    └── sfx/        (8 efectos)
 
 tool/
 ├── asset_studio/           # Paquete Flutter independiente: genera los PNG
@@ -209,7 +207,7 @@ test/                 # Unitarios, de widget y de integración
 
 ### 4.2 `RacingGame` (Flame)
 
-- `FlameGame with HasCollisionDetection, MultiTouchTapDetector`.
+- `FlameGame with HasCollisionDetection, MultiTouchTapDetector, PanDetector`.
 - Componentes:
   - `TrackScroller` → pinta el fondo tileable, el asfalto y los bordillos
     con **scroll infinito** (cada capa con su propio periodo vertical).
@@ -217,17 +215,19 @@ test/                 # Unitarios, de widget y de integración
     `SpriteComponent` (dibujo) e hijo `RectangleHitbox` (colisión).
   - `Obstacle` → `SpriteComponent` + `RectangleHitbox`.
   - `Collectible` → `SpriteComponent` (gira) + `CircleHitbox`.
+  - `VehicleTrail`, `SpeedStreaks`, `SparkField` → capa de **efectos** (ver §4.2 ter).
+  - `_TrackBanner` → meta y banderines **dibujados por código** (ver §4.2 bis).
 - **Colisión**: el `Car` implementa `onComponentTypeCheck` para aceptar solo
   `Obstacle` y `Collectible`, y resuelve en `onCollisionStart`.
 - **Anti-bloqueo**: `TrackGenerator` garantiza que ninguna fila de obstáculos
   ocupe los 3 carriles y que dos filas consecutivas no bloqueen lo mismo.
-- **Velocidad**: `v = v0 + (vmax - v0) · (1 - e^(-t/18))`: aceleración suave
-  hasta 420 px/s, sin saltos.
+- **Velocidad**: la marca el niño (§4.2 quater), no el juego.
 - **Espaciado adaptativo**: las filas aparecen cada `velocidad × 1,15` px,
   es decir, siempre cada ~1,15 s sea cual sea la velocidad: la dificultad
   medida en *tiempo* es constante.
 - **Rendimiento**: los componentes que salen por abajo se eliminan; las
-  listas propias del juego evitan iterar el árbol de Flame.
+  listas propias del juego evitan iterar el árbol de Flame. Además hay
+  **topes de seguridad** (§4.2 quinquies) para que nada se acumule.
 - **Cámara (importante)**: Flame 1.38 ancla el *viewfinder* en el **centro**
   del viewport, de modo que el origen `(0, 0)` del mundo aparece en el centro
   de la pantalla. Para un juego cenital eso deja la pista desplazada media
@@ -251,8 +251,9 @@ pétalos, mariposas, burbujas, globos, luciérnagas, estrellas fugaces, confeti,
 chispas, arena, olas y brasas. Se dibujan con **primitivas** (cero assets extra) y se
 reciclan al salir de la pantalla.
 
-**Vehículos.** `VehicleSpec` + `VehicleType` (coche, camión, moto, bus, tractor y
-furgoneta). El tamaño en pista sale de `widthFactor` y `heightFactor`:
+**Vehículos.** `VehicleSpec` + `VehicleType` (coche, camión, moto, bus, tractor,
+furgoneta) con **12 vehículos** en el catálogo. El tamaño en pista sale de
+`widthFactor` y `heightFactor`:
 `carWidth = laneWidth · 0,62 · widthFactor`. El sprite se dibuja con la misma
 proporción que el canvas del asset, así que no se deforma.
 
@@ -261,6 +262,11 @@ puro** (sin Flutter) con el modelo de velocidad de la pista:
 
 ```dart
 class RaceTiming {
+  static const double maxSpeed = 180;      // px/s (x speedScale del mundo)
+  static const double acceleration = 260;  // px/s^2
+  static const double braking = 420;       // px/s^2
+  static const double coasting = 190;      // px/s^2
+
   static double speedAt(double seconds, double speedScale);
   static double distanceAfter(double seconds, double speedScale);
   static double lapDistance({required int targetSeconds,
@@ -271,15 +277,95 @@ class RaceTiming {
 ```
 
 - La distancia de cada tramo se calcula para que el recorrido completo dure
-  `targetSeconds` (65–78 s). **Si el niño choca, el mundo se para y la carrera dura más**,
-  nunca menos.
-- `timeForDistance` (bisección) permite verificar en los tests que **ningún mundo dura menos
-  de un minuto**.
-- En el juego, el último banderín es la **meta** (`tracks/meta.png`); los anteriores son
-  banderines (`tracks/banderin.png`) que dan estrellas. Al cruzar la meta se dispara
-  `onRaceFinished()` → resumen con estrellas, tiempo y récord.
+  `targetSeconds` (65–78 s) **acelerando siempre**. **Si el niño choca o suelta el
+  acelerador, el mundo se para y la carrera dura más**, nunca menos.
+- `timeForDistance` (bisección cerrada) permite verificar en los tests que **ningún mundo
+  dura menos de un minuto**.
+- En el juego, el último banderín es la **meta**; los anteriores son banderines que dan
+  estrellas. Al cruzar la meta se dispara `onRaceFinished()` → resumen con estrellas,
+  tiempo y récord.
 - El récord se guarda en `Progress.bestTimes` (`progress_best_times`) y **solo mejora**
   (`ProgressProvider.recordBestTime`).
+
+### 4.2 ter La meta y los banderines se dibujan por código
+
+`_TrackBanner` es un `PositionComponent` que **dibuja la meta a cuadros y los banderines
+con flechas** directamente en el `Canvas`.
+
+- **Por qué**: como sprite se veían **pixeleados** al estirarlos por toda la carretera.
+  Dibujados en el mundo son **nítidos a cualquier tamaño**.
+- Lleva `priority = -1`, así que el coche pasa **por encima** de la línea.
+- No hay assets `meta.png` ni `banderin.png`: el generador ya no los produce.
+
+### 4.2 quater El acelerador (el modelo de "el niño marca el ritmo")
+
+El cambio de diseño más importante de la ronda 5: **la velocidad ya no sube sola**.
+
+`RacingGame` expone dos **flags** que la UI escribe directamente:
+
+```dart
+bool accelerating = false;   // el niño mantiene pulsado "Acelerar"
+bool braking = false;        // el niño mantiene pulsado "Frenar"
+```
+
+Y en `update(dt)`:
+
+```dart
+if (accelerating) {
+  _speed += RaceTiming.acceleration * dt;
+} else if (braking) {
+  _speed -= RaceTiming.braking * dt;
+} else {
+  _speed -= RaceTiming.coasting * dt;   // rueda y frena solo
+}
+_speed = _speed.clamp(0, maxSpeed);
+```
+
+- `currentSpeed` y `maxSpeed` son getters públicos: el **HUD** los lee para pintar la
+  velocidad y la barra de progreso.
+- El **HUD es un widget aparte** (`_RaceHud`) con **su propio `Ticker`**: así se
+  repinta solo la chapa del marcador en cada frame, sin reconstruir la pantalla
+  entera (que contiene el `GameWidget` de Flame). El ticker **se para** cuando la
+  carrera está en pausa o terminada.
+- El **freno manda** si los dos flags están a la vez (`else if`).
+- La UI (`_PedalButton`) traduce el gesto en los flags con `onTapDown` / `onTapUp` /
+  `onTapCancel`: hay que **mantener pulsado**.
+- El SFX `motor` suena **solo al arrancar desde parado** (`currentSpeed < 20`), no en
+  cada pulsación, para no cansar.
+
+> **El bug que motivó el cambio**: al pasar a "acelerador mantenido" **no se añadió el
+> botón**. El coche frenaba solo hasta pararse y el juego parecía "alentarse". El
+> diagnóstico correcto fue: *falta el control*, no *falta rendimiento*.
+
+### 4.2 quinquies Topes de seguridad (el juego no se ralentiza)
+
+El síntoma era que **después de un rato de uso la animación se ralentizaba**. Las causas
+posibles eran acumulación de componentes o de listeners. La defensa es **acotar el
+número de elementos vivos**:
+
+| Lista | Tope | Motivo |
+|---|---|---|
+| `_obstacles` | 24 | Los obstáculos que salen por abajo ya se eliminan; el tope cubre el caso de que el niño frene mucho |
+| `_collectibles` | 20 | Ídem con las estrellas |
+| `_banners` | 6 | Solo hay `laps` banderines por carrera |
+
+Cuando se supera el tope, se elimina el más antiguo (`removeAt(0)` + `removeFromParent()`).
+
+Además, la pantalla de carreras **recrea** el juego (`_restart()`) cuando se cambia de
+vehículo desde el garaje, de modo que no quedan componentes viejos vivos.
+
+### 4.2 sexies Efectos de carrera (`vehicle_trail.dart`)
+
+Un solo fichero con tres `Component` de efectos, todos de **primitivas** (cero assets):
+
+| Clase | Qué hace | Parámetro |
+|---|---|---|
+| `VehicleTrail` | Nubecinas de polvo en las ruedas | `speed` (crece con la velocidad) |
+| `SpeedStreaks` | Rayas de viento por los lados | `intensity` = `speed / maxSpeed` |
+| `SparkField` | Chispas al recoger una estrella | `burst(position:, color:)` |
+
+- `SpeedStreaks.intensity` lo escribe `RacingGame.update` en cada frame.
+- Las partículas se **reciclan** al morir (no crecen sin límite).
 
 ### 4.3 `Car`
 ```dart
@@ -298,38 +384,6 @@ class Car extends PositionComponent with CollisionCallbacks {
 - El coche inclina ±12° al cambiar de carril y vuelve a 0° al terminar.
 - Un choque aplica `stun(1 s)`: el mundo se detiene un segundo (nunca hay
   "game over") y el coche tiembla para que el impacto se entienda.
-
-### 4.4 bis Modo "Subidas" (vista de lado, tipo Hill Climb)
-
-`lib/game/racing/climb_terrain.dart` genera el terreno como una lista de puntos con:
-
-- `arcLengths`: la **longitud de arco** acumulada (siempre crece, incluso dentro de
-  un loop, donde el vehículo va hacia la izquierda en pantalla). Es la coordenada
-  real del recorrido y la que se usa para buscar el punto (búsqueda binaria sobre
-  un array monótono: buscar por X **no** valdría dentro de un loop).
-- `angles`: la tangente en cada punto (el vehículo se inclina con el terreno).
-
-Tramos: `flat`, `hill`, `bump`, `ramp` y `loop`. El **loop** es una circunferencia
-recorrida en sentido antihorario: el vehículo sube por la derecha, pasa por arriba
-**del revés** y baja por la izquierda.
-
-`ClimbGame` (FlameGame) usa esas dos funciones para colocar el vehículo y mueve la
-cámara (`camera.viewfinder.position`), así que el loop se ve de verdad. La entrada
-es `accelerating` / `braking` (botones que se mantienen pulsados; **el freno manda**
-si se pulsan los dos) y la velocidad va de 0 a 210 px/s.
-
-**Física del vehículo** (`_ClimbVehicle`): el coche **no está pegado al terreno**.
-
-| Estado | Comportamiento |
-|---|---|
-| En el suelo | Sigue el terreno y el ángulo (suavizado, sin tirones) |
-| Despegue | Si el terreno cae más de lo que permite la gravedad en un frame (`ClimbSpeed.shouldLeaveGround`), el vehículo queda en el aire: solo manda la gravedad |
-| Aterrizaje | Al tocar el suelo: aplastamiento de la suspensión, polvo y temblor de cámara |
-
-De ahí el ciclo "acelerar → despegar → volar → aterrizar" que hace que se sienta
-como un juego de verdad. Los efectos son **ruedas que giran** (sprite aparte,
-`cars/rueda.png`), **polvo** (`_ClimbDust`) y **zumbido de motor** en bucle
-(`motor_loop.wav`, `BgmTrack.engine`).
 
 ### 4.5 Taller (calca, color y pasajero)
 
@@ -450,25 +504,62 @@ Toque (bote)
 ### 5.3 Flujo de carrera
 
 ```
-Toque en pantalla (mitad izq/der)
-  → MultiTouchTapDetector.onTapDown
+Mantener pulsado el acelerador
+  → _PedalButton.onTapDown(true) → RacingScreen._setPedal(accelerating: true)
+    → RacingGame.accelerating = true
+      → update(dt): _speed += RaceTiming.acceleration * dt
+        → el scroll avanza, la estela crece, las líneas de viento se alargan
+        → (solo al arrancar desde parado) SFX engine
+
+Soltar el acelerador / pulsar el freno
+  → _PedalButton.onTapUp(false) / onTapCancel
+    → RacingGame.accelerating = false, braking = true/false
+      → update(dt): _speed -= RaceTiming.braking * dt  (o -= coasting * dt)
+        → el coche rueda y frena solo
+
+Toque en pantalla (mitad izq/der) o flecha de dirección
+  → MultiTouchTapDetector.onTapDown / _SteerButton.onTap
     → RacingGame.steerLeft() / steerRight()
       → Car.steerTo(lane) → interpolación de 220 ms
         → AudioService.playSfx(SfxKind.swoosh)
 
+Arrastrar el dedo
+  → PanDetector.onPanUpdate
+    → RacingGame._carDragX → el coche se mueve libre por la carretera
+
 Colisión con estrella
   → Car.onCollisionStart → Collectible.collect()
     → ProgressProvider.addStars(1) → guardado debounced
-    → SFX ding + pop del contador
+    → SFX ding + pop del contador + chispas (SparkField.burst)
 
 Colisión con obstáculo
   → Car.onCollisionStart → Obstacle.crush() + Car.stun(1 s)
     → el mundo se detiene 1 s (nunca hay "game over")
     → SFX crash (suave, no punitivo)
 
-Cruce de meta
-  → +3 estrellas, +1 vuelta, SFX unlock
+Cruce de banderín / meta
+  → +1 estrella (banderín) o +3 estrellas y fin (meta)
+    → onRaceFinished() → resumen con estrellas, tiempo y récord
 ```
+
+### 5.3 bis Flujo del garaje (cambio de vehículo al instante)
+
+```
+Tocar el botón del vehículo en la pantalla de carreras
+  → RacingScreen._openGarage() → Navigator.push(GarageScreen())
+
+Elegir un vehículo en el garaje
+  → GarageScreen._pick() → progress.selectVehicle(id)
+    → Navigator.pop(vehicle.id)          ← devuelve el id
+
+Volver a la pantalla de carreras
+  → RacingScreen._openGaraje() recibe el id
+    → _restart()  → se recrea el RacingGame con el sprite del vehículo nuevo
+```
+
+Antes el garaje solo guardaba la preferencia y el cambio **no se veía** hasta
+salir y volver a entrar. Ahora `pop(vehicle.id)` + `_restart()` lo aplican al
+instante.
 
 ### 5.4 Flujo de desbloqueo
 
@@ -571,6 +662,9 @@ en cualquier dispositivo y se serialice de forma compacta.
 | WAV 16-bit 22050 Hz | MP3/OGG | No hay encoder disponible offline; WAV lo soporta `audioplayers` en Android/iOS y pesa ~2,2 MB en total. |
 | Generar PNG con `dart:ui` en `flutter test` | Figma / ilustración manual | Pipeline reproducible, versionable y sin licencias de terceros. |
 | Un solo gesto para cambiar de carril | Swipes + botones | Un niño de 3 años no domina el swipe. Un toque en cualquier parte es infalible. |
+| **Acelerador mantenido** (flags `accelerating` / `braking`) | Velocidad automática | El niño **marca el ritmo**: es más "> juego" y da control real sin dejar de ser fácil. Requiere un botón grande y visible. |
+| Meta y banderines **dibujados por código** (`_TrackBanner`) | Sprite `meta.png` | El sprite se **pixelaba** al estirarlo por toda la carretera; dibujado en el mundo es nítido a cualquier tamaño. |
+| **Topes de seguridad** en obstáculos / coleccionables / banderines | Depurar solo al salir de pantalla | Con el niño acelerando y frenando, los elementos pueden quedarse "en cola": sin tope, la escena crece y el juego se ralentiza. |
 | Flame solo para carreras | Flame para todo | El lienzo necesita control fino del gesto; Flame solo añadiría fricción. |
 | Ancla del *viewfinder* en la esquina | Ancla por defecto (centro) | Flame 1.38 centra el mundo en el viewport: la pista quedaría desplazada y el coche saldría de pantalla. |
 | Layout adaptable (`LayoutBuilder` + `FittedBox`) en las barras superiores | Tamaños fijos | En móviles de 320 dp las barras se desbordaban. El layout se adapta o se encoge, nunca se desborda. |
@@ -582,8 +676,8 @@ en cualquier dispositivo y se serialice de forma compacta.
 
 | Nivel | Qué se prueba | Herramienta |
 |---|---|---|
-| **Unitario** | `Progress` (JSON), `ProgressService` (con `SharedPreferences.setMockInitialValues`), `ProgressProvider` (desbloqueos y progresión de niveles), `LevelCatalog` (10 niveles, ids únicos, ambientes únicos, pista válida), `TrackGenerator` (anti-bloqueo), `Car` (carriles, buffer, choque), `PageRaster` (flood fill) | `flutter_test` |
-| **Widget** | `MenuScreen`: 3 tarjetas ≥ 60 dp, navegación a pintura, mapa y libro, sin desbordes. `LevelSelectScreen`: 10 tarjetas, candados, apertura del siguiente nivel, navegación. `SplashScreen`: título, arranque automático y salto con un toque. `RacingScreen`: juego a pantalla completa, ancla de la cámara, áreas táctiles, **controles visibles de dirección**, **parada del juego y de la música al salir**, pausa, panel de coches. `small_screen_test`: las 6 pantallas sin desbordes en un móvil de 320 × 640. `screen_capture_test`: cada pantalla se dibuja sin excepciones y se exporta a PNG | `flutter_test` |
+| **Unitario** | `Progress` (JSON), `ProgressService` (con `SharedPreferences.setMockInitialValues`), `ProgressProvider` (desbloqueos y progresión de niveles), `LevelCatalog` (12 niveles, ids únicos, ambientes únicos, pista válida), `TrackGenerator` (anti-bloqueo), `Car` (carriles, buffer, choque), `RaceTiming` (mínima de 60 s), `PageRaster` (flood fill) | `flutter_test` |
+| **Widget** | `MenuScreen`: 4 tarjetas ≥ 60 dp, navegación a pintura, mapa, taller y libro, sin desbordes. `LevelSelectScreen`: 12 tarjetas, candados, apertura del siguiente nivel, navegación. `SplashScreen`: título, arranque automático y salto con un toque. `RacingScreen`: juego a pantalla completa, ancla de la cámara, áreas táctiles, **controles visibles de dirección**, **acelerador mantenido** (sin pedal no acelera; con pedal sí), **garaje que devuelve el vehículo**, **HUD**, **parada del juego y de la música al salir**, pausa, panel de coches. `small_screen_test`: las pantallas sin desbordes en un móvil de 320 × 640. `screen_capture_test`: cada pantalla se dibuja sin excepciones y se exporta a PNG | `flutter_test` |
 | **Integración** | `flutter analyze` + `flutter test` + `flutter build apk` | CI local |
 | **Assets** | Los WAV tienen señal real (pico y RMS dentro de rango) y los PNG se generan sin excepciones | `tool/asset_studio/test` |
 
