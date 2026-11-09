@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/asset_paths.dart';
@@ -14,6 +16,7 @@ import '../../data/models/level_spec.dart';
 import '../../data/models/vehicle_customization.dart';
 import '../../data/providers/progress_provider.dart';
 import '../../data/services/audio_service.dart';
+import '../../data/services/tilt_service.dart';
 import '../../game/racing/racing_game.dart';
 import '../../shared/context_extensions.dart';
 import '../widgets/big_button.dart';
@@ -29,10 +32,17 @@ import 'garage_screen.dart';
 /// la velocidad y el ambiente animado.
 class RacingScreen extends StatefulWidget {
   /// Crea la pantalla de carreras.
-  const RacingScreen({super.key, this.levelId});
+  const RacingScreen({
+    super.key,
+    this.levelId,
+    this.tiltService,
+  });
 
   /// Nivel concreto; si se omite se usa el seleccionado en el mapa.
   final String? levelId;
+
+  /// Servicio de direccion por inclinacion (inyectable para los tests).
+  final TiltService? tiltService;
 
   @override
   State<RacingScreen> createState() => _RacingScreenState();
@@ -44,6 +54,9 @@ class _RacingScreenState extends State<RacingScreen>
       GlobalKey<GameWidgetState<RacingGame>>();
   RacingGame? _game;
   AudioService? _audio;
+
+  /// Direccion por inclinacion: el nino gira el movil como un volante.
+  late final TiltService _tilt;
   late LevelSpec _level;
   bool _paused = false;
   bool _completed = false;
@@ -57,11 +70,50 @@ class _RacingScreenState extends State<RacingScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _audio = audioServiceOf(context);
+    _tilt = widget.tiltService ?? TiltService();
     final provider = context.read<ProgressProvider>();
     _level = LevelCatalog.byId(widget.levelId ?? '') ??
         provider.selectedLevel;
     _game = _createGame();
     unawaited(_audio?.playBgm(BgmTrack.racing) ?? Future<void>.value());
+    // El volante: el nino inclina el movil para dirigir. Si el dispositivo no
+    // tiene sensor, el servicio se queda neutro y el juego sigue igual.
+    unawaited(_tilt.start());
+    // Las carreras se juegan **acostadas**: el movil en horizontal, como un
+    // volante. Al salir se recupera la orientacion del resto de la app.
+    unawaited(_lockLandscape());
+  }
+
+  /// Pide la orientacion horizontal (solo en movil: en web la API no existe).
+  Future<void> _lockLandscape() async {
+    if (kIsWeb) {
+      return;
+    }
+    try {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } catch (error) {
+      debugPrint('[Pincel] No se pudo girar la pantalla: $error');
+    }
+  }
+
+  /// Recupera la orientacion normal de la app.
+  Future<void> _unlockOrientation() async {
+    if (kIsWeb) {
+      return;
+    }
+    try {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } catch (error) {
+      debugPrint('[Pincel] No se pudo restaurar la orientacion: $error');
+    }
   }
 
   @override
@@ -86,6 +138,8 @@ class _RacingScreenState extends State<RacingScreen>
     // Sin esto, al volver al menu el Ticker de Flame seguia moviendo el
     // coche y la musica de carreras no se callaba nunca.
     _game?.halt();
+    _tilt.stop();
+    unawaited(_unlockOrientation());
     _game = null;
     unawaited(_audio?.stopBgm() ?? Future<void>.value());
     super.dispose();
@@ -119,6 +173,7 @@ class _RacingScreenState extends State<RacingScreen>
       vehicleHeightFactor: vehicle.heightFactor,
       laps: _level.laps,
       targetSeconds: _level.targetSeconds,
+      tiltService: _tilt,
       onStarCollected: (amount) {
         if (!mounted) {
           return;
@@ -253,18 +308,6 @@ class _RacingScreenState extends State<RacingScreen>
     }
   }
 
-  /// Mueve el coche a la izquierda desde el boton de pantalla.
-  void _steerLeft() {
-    final game = _gameKey.currentState?.currentGame ?? _game;
-    game?.steerLeft();
-  }
-
-  /// Mueve el coche a la derecha desde el boton de pantalla.
-  void _steerRight() {
-    final game = _gameKey.currentState?.currentGame ?? _game;
-    game?.steerRight();
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ProgressProvider>();
@@ -276,13 +319,21 @@ class _RacingScreenState extends State<RacingScreen>
       backgroundColor: AppPalette.ink,
       body: Stack(
         children: [
+          // El mundo del juego esta en vertical (la pista baja) pero la
+          // pantalla esta **acostada**: girando el juego 90 grados la pista
+          // queda horizontal y el coche avanza hacia la derecha, como en un
+          // juego de carreras de verdad. La interfaz (barras, pedales y HUD)
+          // queda siempre derecha y legible.
           Positioned.fill(
-            child: GameWidget<RacingGame>(
-              key: _gameKey,
-              game: _game!,
-              backgroundBuilder: (context) => const ColoredBox(
-                color: AppPalette.ink,
-                child: SizedBox.expand(),
+            child: RotatedBox(
+              quarterTurns: 1,
+              child: GameWidget<RacingGame>(
+                key: _gameKey,
+                game: _game!,
+                backgroundBuilder: (context) => const ColoredBox(
+                  color: AppPalette.ink,
+                  child: SizedBox.expand(),
+                ),
               ),
             ),
           ),
@@ -367,25 +418,8 @@ class _RacingScreenState extends State<RacingScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Direccion (tambien se puede arrastrar el coche).
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _SteerButton(
-                    key: const ValueKey<String>('steer_left'),
-                    icon: Icons.chevron_left_rounded,
-                    label: 'Izquierda',
-                    onTap: _steerLeft,
-                  ),
-                  const SizedBox(width: 8),
-                  _SteerButton(
-                    key: const ValueKey<String>('steer_right'),
-                    icon: Icons.chevron_right_rounded,
-                    label: 'Derecha',
-                    onTap: _steerRight,
-                  ),
-                ],
-              ),
+              // Pista de como dirigir: el nino inclina el movil.
+              const _SteerHint(),
               // Frenar.
               _PedalButton(
                 key: const ValueKey<String>('brake'),
@@ -679,6 +713,50 @@ class _SummaryStat extends StatelessWidget {
   }
 }
 
+/// Pista de como dirigir: el nino inclina el movil como un volante.
+///
+/// Sustituye a los botones de flechas: con el movil en horizontal no hace
+/// falta tocar la pantalla para ir de un lado a otro.
+class _SteerHint extends StatelessWidget {
+  const _SteerHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Flexible(
+      child: Semantics(
+        label: 'Inclina el móvil para dirigir el coche',
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppPalette.white.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppPalette.ink, width: 2),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.swap_horiz_rounded, color: AppPalette.ink, size: 26),
+                SizedBox(width: 6),
+                Text(
+                  'Inclina',
+                  style: TextStyle(
+                    color: AppPalette.ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Chapa del marcador: velocidad actual y progreso hacia la meta.
 ///
 /// Lleva **su propio ticker** paraActualizarse en cada frame sin repintar
@@ -766,28 +844,34 @@ class _RaceHudState extends State<_RaceHud>
             ),
           ),
           const SizedBox(width: 10),
-          SizedBox(
-            width: 86,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: (speed / max).clamp(0.0, 1.0),
-                minHeight: 9,
-                backgroundColor: const Color(0x22000000),
-                valueColor: const AlwaysStoppedAnimation(AppPalette.green),
+          // Las barras ceden espacio si la pantalla es estrecha: el HUD
+          // nunca puede desbordar.
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 86),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: (speed / max).clamp(0.0, 1.0),
+                  minHeight: 9,
+                  backgroundColor: const Color(0x22000000),
+                  valueColor: const AlwaysStoppedAnimation(AppPalette.green),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 10),
-          SizedBox(
-            width: 86,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 9,
-                backgroundColor: const Color(0x22000000),
-                valueColor: const AlwaysStoppedAnimation(AppPalette.violet),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 86),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 9,
+                  backgroundColor: const Color(0x22000000),
+                  valueColor: const AlwaysStoppedAnimation(AppPalette.violet),
+                ),
               ),
             ),
           ),
@@ -902,69 +986,6 @@ class _PedalButtonState extends State<_PedalButton> {
   }
 }
 
-/// Boton redondo de direccion visible en pantalla.
-///
-/// El nino ve donde tiene que tocar: flecha grande, area tactil amplia y
-/// semitransparente para no tapar la pista.
-class _SteerButton extends StatefulWidget {
-  const _SteerButton({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  State<_SteerButton> createState() => _SteerButtonState();
-}
-
-class _SteerButtonState extends State<_SteerButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: widget.label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTap: widget.onTap,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 120),
-          opacity: _pressed ? 1 : 0.62,
-          child: Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppPalette.white.withValues(alpha: 0.72),
-              shape: BoxShape.circle,
-              border: Border.all(color: AppPalette.ink, width: 3),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x33000000),
-                  offset: Offset(0, 4),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: Icon(
-              widget.icon,
-              color: AppPalette.ink,
-              size: 42,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _LevelBadge extends StatelessWidget {
   const _LevelBadge({required this.level, required this.compact});

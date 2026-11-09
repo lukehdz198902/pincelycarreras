@@ -13,6 +13,7 @@ import '../../core/constants/game_sizes.dart';
 import '../../core/constants/palette.dart';
 import '../../data/models/level_spec.dart';
 import '../../data/services/asset_service.dart';
+import '../../data/services/tilt_service.dart';
 import 'car.dart';
 import 'collectible.dart';
 import 'lane.dart';
@@ -52,6 +53,7 @@ class RacingGame extends FlameGame
     this.characterAssetPath,
     this.laps = 3,
     this.targetSeconds = 70,
+    this.tiltService,
   });
 
   /// Ruta del sprite del vehiculo.
@@ -114,6 +116,12 @@ class RacingGame extends FlameGame
   /// Se invoca cuando el coche cambia de carril.
   final VoidCallback? onLaneChange;
 
+  /// Servicio de direccion por inclinacion (el "volante").
+  ///
+  /// Si es `null` (o el dispositivo no tiene sensor) el coche solo se
+  /// mueve arrastrandolo con el dedo.
+  final TiltService? tiltService;
+
   /// `true` mientras el nino mantiene pulsado el acelerador.
   bool accelerating = false;
 
@@ -127,11 +135,22 @@ class RacingGame extends FlameGame
   @override
   Color backgroundColor() => AppPalette.ink;
 
-  /// Tiempo entre filas de obstaculos (multiplicador de la velocidad).
+  /// Tiempo entre obstaculos, en segundos de juego.
   ///
-  /// Antes era 1,15: las filas se empalmaban y era imposible esquivarlas.
-  /// Con 2,2 hay siempre un hueco comodo entre obstaculos.
-  static const double rowSpacingFactor = 2.2;
+  /// Antes se generaban filas cada 2,2 s con hasta **dos** obstaculos: la
+  /// pista estaba llena y para un nino de 3 anos era imposible esquivarla.
+  /// Ahora hay **un solo obstaculo** cada 3,4 s y **siempre** quedan dos
+  /// carriles libres.
+  static const double obstacleSpacing = 3.4;
+
+  /// Tiempo entre estrellas, en segundos de juego.
+  static const double starSpacing = 2.2;
+
+  /// Separacion minima (en segundos) entre un obstaculo y una estrella.
+  ///
+  /// Garantiza que **nunca** se empalmen: la estrella siempre aparece
+  /// claramente por delante o por detras del obstaculo.
+  static const double minSeparation = 1.4;
 
   /// Estrellas otorgadas al cruzar la meta.
   static const int lapStars = 3;
@@ -141,6 +160,12 @@ class RacingGame extends FlameGame
   final List<Obstacle> _obstacles = [];
   final List<Collectible> _collectibles = [];
   final List<_TrackBanner> _banners = [];
+
+  /// Ultimo carril en el que aparecio un obstaculo.
+  int? _lastObstacleLane;
+
+  /// Ultima direccion del volante aplicada (para no repetir el sonido).
+  double _lastSteering = 0;
 
   ui.Image? _carImage;
   ui.Image? _trackImage;
@@ -164,7 +189,8 @@ class RacingGame extends FlameGame
   double _scroll = 0;
   double _raceSeconds = 0;
   double _speed = 0;
-  double _distanceSinceRow = 0;
+  double _distanceSinceObstacle = 0;
+  double _distanceSinceStar = 0;
   double _distanceSinceLap = 0;
   double _lapDistance = 2600;
   int _bannersSpawned = 0;
@@ -204,6 +230,12 @@ class RacingGame extends FlameGame
 
   /// Posicion horizontal del coche en la pantalla.
   double get carX => _car?.x ?? 0;
+
+  /// Posicion del coche a lo largo de la pista (en el mundo del juego).
+  double get carY => _car?.y ?? 0;
+
+  /// Ancho de la carretera en pixeles logicos.
+  double get roadWidth => _scroller?.roadWidth ?? 0;
 
   /// Detiene el motor de forma definitiva.
   ///
@@ -297,13 +329,19 @@ class RacingGame extends FlameGame
     _collectibles.clear();
     _banners.clear();
 
+    // El mundo del juego esta **girado 90 grados**: la pantalla muestra la
+    // pista en horizontal (el coche avanza hacia la derecha) porque la
+    // pantalla esta en `RotatedBox`. Por eso `size.x` es la ALTURA de la
+    // pantalla y `size.y` su ANCHURA.
+    //
+    // La carretera ocupa una fraccion de la altura: el resto es decorado.
     final roadWidth = math.min(
-      size.x - GameSizes.roadMargin * 2,
+      size.x * GameSizes.roadWidthFraction,
       GameSizes.maxRoadWidth,
     );
     final laneWidth = roadWidth / 3;
-    final carWidth = laneWidth * 0.62 * vehicleWidthFactor;
-    final carHeight = carWidth * 1.52 * vehicleHeightFactor;
+    final carWidth = laneWidth * 0.78 * vehicleWidthFactor;
+    final carHeight = carWidth * 1.45 * vehicleHeightFactor;
 
     final scroller = TrackScroller(
       backgroundImage: trackImage,
@@ -380,7 +418,8 @@ class RacingGame extends FlameGame
     _scroll = 0;
     _raceSeconds = 0;
     _speed = 0;
-    _distanceSinceRow = 0;
+    _distanceSinceObstacle = 0;
+    _distanceSinceStar = 0;
     _distanceSinceLap = 0;
     _bannersSpawned = 0;
     _finished = false;
@@ -427,16 +466,6 @@ class RacingGame extends FlameGame
     }
     _car!.steerRight();
     onLaneChange?.call();
-  }
-
-  @override
-  void onTapDown(int pointerId, TapDownInfo info) {
-    // Un unico toque en cualquier parte: mitad izquierda o derecha.
-    if (info.eventPosition.widget.x < size.x / 2) {
-      steerLeft();
-    } else {
-      steerRight();
-    }
   }
 
   @override
@@ -489,6 +518,20 @@ class RacingGame extends FlameGame
       return;
     }
 
+    // El "volante": el nino inclina el movil y el coche se desplaza.
+    // Se llama siempre (tambien con valor 0) para que el coche **vuelva al
+    // centro** cuando el nino suelta el volante.
+    final tilt = tiltService;
+    if (tilt != null && tilt.isAvailable) {
+      tilt.update(dt);
+      final steering = tilt.steering;
+      car.steerBy(steering);
+      if ((steering - _lastSteering).abs() > 0.02) {
+        _lastSteering = steering;
+        onLaneChange?.call();
+      }
+    }
+
     // El nino marca el ritmo: mantiene pulsado el acelerador para avanzar.
     if (accelerating) {
       _speed += RaceTiming.acceleration * dt;
@@ -506,11 +549,7 @@ class RacingGame extends FlameGame
     _trail?.speed = _speed;
     _streaks?.intensity = (_speed / maxSpeed).clamp(0.0, 1.0);
 
-    _distanceSinceRow += _speed * dt;
-    if (_distanceSinceRow >= _speed * rowSpacingFactor) {
-      _distanceSinceRow = 0;
-      unawaited(_spawnRow());
-    }
+    _updateSpawning(dt);
 
     _distanceSinceLap += _speed * dt;
     if (_distanceSinceLap >= _lapDistance) {
@@ -563,58 +602,83 @@ class RacingGame extends FlameGame
     }
   }
 
-  Future<void> _spawnRow() async {
-    final car = _car;
-    if (car == null) {
+  /// Decide que aparece en la pista segun el tiempo transcurrido.
+  ///
+  /// - **un obstaculo** cada [obstacleSpacing] segundos;
+  /// - **una estrella** cada [starSpacing] segundos, pero nunca pegada a un
+  ///   obstaculo (siempre a mas de [minSeparation] segundos de distancia).
+  void _updateSpawning(double dt) {
+    if (_speed <= 0) {
       return;
     }
-    final roadWidth = _scroller?.roadWidth ?? GameSizes.maxRoadWidth;
-    final laneWidth = roadWidth / 3;
-    final roadCenterX = size.x / 2;
-    final row = _generator.next();
-    final spawnY = -80.0;
-    final newComponents = <Component>[];
+    final travelled = _speed * dt;
+    _distanceSinceObstacle += travelled;
+    _distanceSinceStar += travelled;
 
-    for (final lane in row.obstacleLanes) {
-      final type = _randomObstacleType();
-      final image = _imageForType(type);
-      if (image == null) {
-        continue;
-      }
-      final obstacle = Obstacle(
-        type: type,
-        image: image,
-        obstacleSize: Vector2(laneWidth * 0.72, laneWidth * 0.72),
-      )..position = Vector2(roadCenterX + (lane - 1) * laneWidth, spawnY);
-      _obstacles.add(obstacle);
-      newComponents.add(obstacle);
+    final wantObstacle =
+        _distanceSinceObstacle >= _speed * obstacleSpacing;
+    final wantStar = _distanceSinceStar >= _speed * starSpacing;
+    if (!wantObstacle && !wantStar) {
+      return;
     }
 
-    final starLane = row.starLane;
-    final starImage = _starImage;
-    if (starLane != null && starImage != null) {
-      final star = Collectible(
-        image: starImage,
-        itemSize: Vector2(laneWidth * 0.62, laneWidth * 0.62),
-      )..position = Vector2(roadCenterX + (starLane - 1) * laneWidth, spawnY);
-      _collectibles.add(star);
-      newComponents.add(star);
+    final secondsSinceObstacle = _distanceSinceObstacle / _speed;
+    if (wantObstacle) {
+      _distanceSinceObstacle = 0;
+      unawaited(_spawnObstacle());
+      return;
     }
+    if (secondsSinceObstacle >= minSeparation) {
+      _distanceSinceStar = 0;
+      unawaited(_spawnStar());
+    }
+  }
 
-    await world.addAll(newComponents);
+  /// Aparece **un solo** obstaculo, en un carril distinto al anterior.
+  Future<void> _spawnObstacle() async {
+    final lane = _generator.nextObstacleLane();
+    final type = _randomObstacleType();
+    final image = _imageForType(type);
+    if (image == null) {
+      return;
+    }
+    final laneWidth = (_scroller?.roadWidth ?? GameSizes.maxRoadWidth) / 3;
+    final obstacle = Obstacle(
+      type: type,
+      image: image,
+      obstacleSize: Vector2(laneWidth * 0.62, laneWidth * 0.62),
+    )..position = Vector2(size.x / 2 + (lane - 1) * laneWidth, -80);
+    _obstacles.add(obstacle);
+    await world.add(obstacle);
 
     // Topes de seguridad: nunca se acumulan mas de estos elementos, asi el
     // juego no puede ir perdiendo fotogramas con el tiempo.
-    while (_obstacles.length > 24) {
+    while (_obstacles.length > 12) {
       final old = _obstacles.removeAt(0);
-      old.removeFromParent();
-    }
-    while (_collectibles.length > 20) {
-      final old = _collectibles.removeAt(0);
       old.removeFromParent();
     }
   }
 
+  /// Aparece una estrella en un carril libre.
+  Future<void> _spawnStar() async {
+    final starImage = _starImage;
+    if (starImage == null) {
+      return;
+    }
+    final laneWidth = (_scroller?.roadWidth ?? GameSizes.maxRoadWidth) / 3;
+    final lane = _generator.nextStarLane(forbiddenLane: _lastObstacleLane);
+    final star = Collectible(
+      image: starImage,
+      itemSize: Vector2(laneWidth * 0.5, laneWidth * 0.5),
+    )..position = Vector2(size.x / 2 + (lane - 1) * laneWidth, -80);
+    _collectibles.add(star);
+    await world.add(star);
+
+    while (_collectibles.length > 12) {
+      final old = _collectibles.removeAt(0);
+      old.removeFromParent();
+    }
+  }
   Future<void> _spawnBanner({required bool isFinish}) async {
     final roadWidth = _scroller?.roadWidth ?? GameSizes.maxRoadWidth;
     final banner = _TrackBanner(isFinish: isFinish)

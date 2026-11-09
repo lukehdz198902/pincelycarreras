@@ -204,14 +204,34 @@ para no penalizar el frame rate en dispositivos baratos.
 ## 5. MODO 2 — CARRERAS
 
 ### 5.1 Objetivo
-Conducir un coche por una pista que **el niño mueve manteniendo pulsado el
-acelerador**, mientras dirige **tocando la pantalla** para esquivar obstáculos y
-recoger estrellas. El niño **marca el ritmo**: si suelta el acelerador, el coche
-rueda y frena; si lo mantiene, corre.
+Conducir un coche por una pista **horizontal** mientras el niño **inclina el móvil
+como si fuera un volante**. El niño marca el ritmo manteniendo pulsado el acelerador y
+dirige girando el teléfono. La pantalla está **acostada**: la pista corre de izquierda a
+derecha, como en un juego de carreras de verdad.
 
-### 5.2 Controles (pedales, flechas, arrastre y toque)
+### 5.2 Controles (volante, pedales y arrastre)
 
-#### 5.2.1 Pedales (control principal)
+#### 5.2.1 El volante (control principal)
+
+| Gesto | Resultado | Feedback |
+|---|---|---|
+| **Girar el móvil** como un volante (en horizontal) | El coche se desplaza **de forma continua** por la carretera | El coche se inclina y la estela se desvía |
+| **Dejar el volante quieto** | El coche vuelve **solo** al centro de la carretera | El volante vuelve al centro con suavidad |
+
+- El móvil se sujeta **en horizontal**, con las dos manos, como un volante de coche.
+- Se usa el **giroscopo**: mide el giro alrededor del eje normal de la pantalla, así que
+  el gesto funciona **igual** sujetando el móvil a la izquierda o a la derecha (no hay que
+  invertir nada).
+- Si el dispositivo **no tiene giroscopio**, se usa el **acelerómetro** (inclinar el móvil
+  hacia delante o atrás). Si no hay ningún sensor, el niño puede **arrastrar el coche con
+  el dedo**.
+- En pantalla aparece una chapa con el texto **"Inclina"** para recordar el gesto.
+
+> **Por qué se quitó "tocar la pantalla para girar":** cualquier toque en la carretera
+> (incluida la mano que sujeta el móvil) hacía girar el coche, y se iba solo hacia un
+> lado. Ahora la pantalla **no** gira el coche: solo se mueve con el móvil o arrastrando.
+
+#### 5.2.2 Pedales
 
 | Control | Gesto | Resultado | Feedback |
 |---|---|---|---|
@@ -219,30 +239,13 @@ rueda y frena; si lo mantiene, corre.
 | **Frenar** 🔴 | **Mantener pulsado** (60 dp) | El coche frena con fuerza (420 px/s²) hasta pararse | Las líneas de viento se acortan |
 | **Soltar** | Levantar el dedo | El coche **rueda y frena solo** (190 px/s²) | La estela se desvanece |
 
-- Los pedales están **siempre visibles** en la parte inferior: el niño ve dónde
+- Los pedales están **siempre visibles** en la parte inferior derecha: el niño ve dónde
   tiene que apretar, sin tener que adivinarlo.
 - El botón de **acelerar** es más grande que el de frenar: es el que se usa.
 - Ambos botones tienen etiqueta con `FittedBox`, así que **no desbordan** ni
-  siquiera en un móvil de 320 dp.
+  siquiera en un móvil pequeño.
 - El sonido de motor (`sfx/motor.wav`) suena **solo al arrancar desde parado**
   (no en cada pulsación), para no cansar.
-
-#### 5.2.2 Dirección
-
-| Gesto | Resultado | Feedback |
-|---|---|---|
-| **Flecha ⟵ de la pantalla** | Cambia a carril izquierdo | SFX `swoosh` + el coche rota ±12° con rebote |
-| **Flecha ⟶ de la pantalla** | Cambia a carril derecho | SFX `swoosh` + el coche rota ±12° con rebote |
-| **Arrastrar el dedo** | Mueve el coche de forma **continua** por toda la carretera | El coche se inclina según la velocidad lateral |
-| **Tocar mitad izquierda** | Cambia a carril izquierdo | SFX `swoosh` + el coche rota ±12° con rebote |
-| **Tocar mitad derecha** | Cambia a carril derecho | SFX `swoosh` + el coche rota ±12° con rebote |
-| **Tocar dos veces seguidas** | Vuelve al carril central | SFX `swoosh` |
-
-- Las **flechas grandes (64 dp, semitransparentes)** están siempre en pantalla.
-- El coche se mueve **libremente por toda la carretera** (no solo de carril en
-  carril): la pista es ancha y **sin líneas que la partan en tres**.
-- **No hay cronómetro ni barra de distancia obligatoria.** El avance se siente por
-  la velocidad del scroll del fondo y por el **HUD** (§5.2.3).
 
 #### 5.2.3 HUD (marcador)
 
@@ -254,21 +257,23 @@ Una chapa flotante arriba, en el centro, con:
 | 🟢 **Barra verde** | Cuánto de la velocidad máxima lleva puesto |
 | 🟣 **Barra violeta** | **Progreso hacia la meta** (0 → 1) |
 
-- La chapa se repinta **en cada frame** (el HUD tiene su propio reloj) y **se congela**
-  cuando la carrera está en pausa o terminada.
-- El HUD **no** tiene iconos de "cambiar de marcha" ni de "cronómetro": solo lo que el
-  niño necesita para entender que está corriendo y que le queda camino.
+- La chapa se repinta **en cada frame** y **se congela** cuando la carrera está en pausa
+  o terminada.
 
 ### 5.3 Física y mundo
 
-- Vista **cenital (top-down)**, pista vertical con scroll descendente.
+- Vista **cenital (top-down)**, con la pista **en horizontal**: el coche avanza hacia la
+  **derecha** de la pantalla y el mundo se desplaza hacia la izquierda.
+- La pantalla está **acostada**: el juego pide orientación horizontal al entrar y la
+  recupera al salir. La interfaz (barras, pedales y HUD) queda siempre **derecha**.
+- El **mundo del juego está girado 90°**: por dentro la pista baja (como antes) y la
+  pantalla la gira. Así el cambio de vista no obliga a reescribir el motor.
 - **3 carriles**, separados 120 px, centrados.
-- El coche: 76 × 116 px, esquinas redondeadas, con sombra elíptica suave.
-- El carril se cambia en **220 ms** con `EaseOutCubic`; el coche **no puede saltarse
-  un carril** (buffer de entrada: si ya hay un cambio en curso, se encola 1).
-- Obstáculos y estrellas aparecen **por arriba** y se desplazan hacia abajo a la
-  **misma velocidad que el scroll**, de modo que el "movimiento" es embotado por el niño
-  (los elementos se ven venir con tiempo para reaccionar).
+- El coche: esquinas redondeadas, con sombra elíptica suave; su tamaño depende del
+  vehículo (una moto es estrecha, un bus es enorme).
+- Obstáculos y estrellas aparecen **por la derecha** y se desplazan hacia la izquierda a
+  la **misma velocidad que el scroll**, de modo que el niño los ve venir con tiempo para
+  reaccionar.
 
 #### 5.3.1 Modelo de velocidad (`RaceTiming`)
 
@@ -305,15 +310,20 @@ El modelo es **puro** (sin Flutter) y vive en `lib/game/racing/race_timing.dart`
   *shake* de 300 ms, aparece una nubecina de polvo y **el juego continúa**. No se pierde
   nada, no hay sonido de error, no hay Game Over.
 - El cono se **desvanece** tras el impacto (se "aplastan" y desaparecen).
-- **Espaciado cómodo**: entre fila y fila hay más de 2 veces la distancia que recorre el
-  coche en un segundo, así que **siempre hay hueco para esquivar**. Además, la mayoría de
-  las filas bloquean **un solo** carril (solo una de cada cuatro bloquea dos).
-- **Trampa de scroll (anti-frustración)**: los obstáculos nunca ocupan los 3 carriles a la
-  vez — siempre queda **al menos un carril libre** (y con el arrastre libre, un hueco
-  ancho).
-- **Topes de seguridad**: nunca hay más de **24 obstáculos**, **20 coleccionables** ni
-  **6 banderines** vivos a la vez. Así el juego no puede ir perdiendo fotogramas con el
-  tiempo de uso.
+
+#### 5.4.1 Cuántos obstáculos hay (lo importante para un niño de 3 años)
+
+| Regla | Valor | Por qué |
+|---|---|---|
+| **Un solo obstáculo** cada vez | 1 | Antes llegaban filas con **dos** obstáculos: la pista se llenaba |
+| Separación entre obstáculos | **3,4 s** | Tiempo de sobra para verlos venir y apartarse |
+| Separación entre estrellas | **2,2 s** | Siempre hay algo que recoger |
+| Separación mínima entre un obstáculo y una estrella | **1,4 s** | **Nunca se empalman**: la estrella nunca aparece pegada al obstáculo |
+| Carriles bloqueados por un obstáculo | **1 de 3** | **Siempre quedan dos carriles libres**: es imposible quedarse atrapado |
+| El obstáculo no repite carril | sí | El niño tiene que moverse en cada obstáculo |
+
+- El cono ocupa el **62 %** del ancho de su carril (antes el 72 %) y la estrella el 50 %:
+  hay más sitio entre ellos y no se solapan.
 
 ### 5.5 Pistas (12 mundos)
 
@@ -631,7 +641,7 @@ Todo en `shared_preferences`, con prefijo de dominio:
 | # | Criterio | Cómo se verifica |
 |---|---|---|
 | A1 | Desde el menú se llega a pintura y a carreras en **1 toque** (carreras → mapa → nivel = 2 toques) | Test de widget + captura |
-| A2 | En carreras, el toque izq./der. cambia de carril en ≤ 250 ms | Test unitario del `Car` |
+| A2 | El coche cambia de posición en ≤ 250 ms al girar el volante | Test de widget del `Car` |
 | A3 | Un choque **no** termina la partida ni resta estrellas | Test de integración de la escena |
 | A4 | Pintar genera ≥ 1 partícula y reproduce `pop` | Test de widget |
 | A5 | Las estrellas persisten tras reiniciar la app | Test de `ProgressService` con `SharedPreferences.setMockInitialValues` |
@@ -642,13 +652,16 @@ Todo en `shared_preferences`, con prefijo de dominio:
 | A10 | Funciona en vertical y horizontal sin overflow | Test de widget en ambas orientaciones |
 | A11 | Al salir de una carrera **se detienen** el motor del juego y la música | Test de widget con `AudioService` falso |
 | A12 | Hay 12 mundos con ambientes distintos y desbloqueo progresivo | Test de `LevelCatalog` + `ProgressProvider` |
-| A13 | Las flechas de dirección **y los pedales** están **visibles** en la pantalla de carreras | Test de widget (`steer_left` / `steer_right` / `accelerate` / `brake`) |
+| A13 | Los **pedales** están **visibles** en la pantalla de carreras | Test de widget (`accelerate` / `brake`) |
 | A14 | Cada carrera dura **al menos un minuto** y **tiene final** (meta) | Test de `RaceTiming` + test de widget de la pantalla de carreras |
 | A15 | El garaje ofrece coches, moto, camión, bus, tractor, furgoneta, policía y ambulancia | Test de widget del garaje + test del catálogo |
 | A16 | El coche **solo avanza si el niño mantiene pulsado el acelerador** | Test de widget: sin pedal la velocidad no sube; con pedal sí |
 | A17 | Cambiar de vehículo en el garaje se aplica **al instante**, sin salir de la carrera | Test de widget: abrir garaje → elegir → la carrera usa el nuevo |
-| A18 | El juego **no se ralentiza** con el tiempo de uso (nada se acumula sin límite) | Topes de seguridad (≤24 obstáculos, ≤20 coleccionables, ≤6 banderines) |
-| A19 | El HUD muestra **velocidad y progreso** | Test de widget + captura de pantalla |
+| A18 | El juego **no se ralentiza** con el tiempo de uso (nada se acumula sin límite) | Topes de seguridad (≤12 obstáculos, ≤12 coleccionables, ≤6 banderines) |
+| A19 | El HUD muestra **velocidad y progreso** en vivo | Test de widget + captura de pantalla |
+| A20 | La pista se ve **en horizontal** y la pantalla **acostada** | Test de widget: el mundo del juego está girado 90° y el coche sale por la izquierda |
+| A21 | El niño dirige **inclinando el móvil** (volante), sin tocar la pantalla | Test de widget con un `TiltService` falso |
+| A22 | Hay **un solo obstáculo** cada 3,4 s y **nunca** se empalma con una estrella | Test de las constantes de espaciado + test del generador |
 
 ---
 

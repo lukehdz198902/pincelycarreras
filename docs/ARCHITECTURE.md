@@ -2,7 +2,7 @@
 
 Documento técnico complementario a [`GDD.md`](GDD.md) y a [`AGENTS.md`](../AGENTS.md).
 
-**Stack:** Flutter 3.44 / Dart 3.12 · Flame 1.38 · flame_audio 2.12 · provider 6.1 · shared_preferences 2.5
+**Stack:** Flutter 3.44 / Dart 3.12 · Flame 1.38 · flame_audio 2.12 · provider 6.1 · shared_preferences 2.5 · sensors_plus 7.1
 
 ---
 
@@ -105,6 +105,7 @@ lib/
 │   └── services/
 │       ├── progress_service.dart    # shared_preferences (debounce 500 ms)
 │       ├── audio_service.dart       # FlameAudio: bgm + sfx con cooldown
+│       ├── tilt_service.dart        # "Volante": giroscopio/acelerometro
 │       └── asset_service.dart       # Carga de imágenes (rootBundle → ui.Image)
 ├── game/
 │   ├── coloring/
@@ -367,6 +368,100 @@ Un solo fichero con tres `Component` de efectos, todos de **primitivas** (cero a
 - `SpeedStreaks.intensity` lo escribe `RacingGame.update` en cada frame.
 - Las partículas se **reciclan** al morir (no crecen sin límite).
 
+### 4.2 septies La vista horizontal: el mundo esta girado 90 grados
+
+Las carreras se juegan **acostadas**: la pista corre de izquierda a derecha y el niño
+sujeta el móvil como un volante.
+
+**La decisión:** en lugar de reescribir el motor de carreras para que el mundo fuera
+horizontal, se **gira el mundo entero** con un `RotatedBox` en la pantalla:
+
+```dart
+Positioned.fill(
+  child: RotatedBox(
+    quarterTurns: 1,
+    child: GameWidget<RacingGame>(...),
+  ),
+)
+```
+
+| | Sin rotar (vertical) | Con `RotatedBox` (horizontal) |
+|---|---|---|
+| `size.x` del juego | ancho de la pantalla | **altura** de la pantalla |
+| `size.y` del juego | alto de la pantalla | **ancho** de la pantalla |
+| El coche | abajo, mirando arriba | **izquierda, mirando a la derecha** |
+| Los obstáculos | vienen por arriba | **vienen por la derecha** |
+
+- La rotación es **de sentido horario**: el mundo `y` grande (el coche, al fondo) queda a
+  la **izquierda** de la pantalla y el mundo `y` pequeño (por donde aparecen los
+  obstáculos) queda a la **derecha**. El sprite del coche, que apunta a `-y`, se ve
+  **apuntando a la derecha** sin tocar ni un pixel del asset.
+- **La interfaz no se gira**: la barra superior, los pedales y el HUD están fuera del
+  `RotatedBox`, así que se leen derechos.
+- La pantalla pide **orientación horizontal** al entrar (`SystemChrome
+  .setPreferredOrientations`) y la recupera al salir. En web no se hace (la API no
+  existe) y el juego funciona igual, girado.
+- **El ambiente se corrige**: `LevelAmbience` dibuja las partículas en un espacio local
+  girado (`translate` + `rotate(-π/2)`) para que la nieve caiga **hacia abajo** de la
+  pantalla y no hacia el lado.
+- La carretera ocupa el **58 %** de la altura de la pantalla (`GameSizes
+  .roadWidthFraction`): el resto es decorado, para que se vea que el coche corre por un
+  sitio y no por una pared.
+- **Las coordenadas de los gestos siguen siendo correctas**: Flame usa
+  `RenderBox.globalToLocal`, que aplica toda la cadena de transformaciones (incluida la
+  del `RotatedBox`). Por eso arrastrar el dedo en vertical mueve el coche de un lado a
+  otro de la carretera, que es justo lo que se ve en pantalla.
+
+### 4.2 octies El volante: `TiltService`
+
+`lib/data/services/tilt_service.dart` traduce el giro del móvil en un valor normalizado
+(`-1` = todo a la izquierda, `0` = centrado, `+1` = todo a la derecha).
+
+| Sensor | Qué mide | Por qué |
+|---|---|---|
+| **Giroscopio** (preferido) | La rotación alrededor del eje **normal a la pantalla** (`z`) | Es exactamente el gesto de **girar el móvil como un volante**, y **no depende** de si el móvil está en horizontal izquierdo o derecho |
+| **Acelerómetro** (respaldo) | El componente de la gravedad en el eje vertical de la pantalla | Permite inclinar el móvil hacia delante o atrás si no hay giroscopio |
+
+- El giroscopio se integra (velocidad angular × tiempo) en un **ángulo de volante**
+  limitado a `maxWheelAngle` (0,55 rad ≈ 31°). Cuando el niño deja de girar, el ángulo
+  **vuelve solo al centro** (`returnRate = 1,8`/s), así que no tiene que "desgirar".
+- El servicio **nunca lanza**: si el sensor no existe (emulador, escritorio, web sin
+  permiso), se queda neutro y el juego sigue siendo jugable **arrastrando** el coche.
+- La pantalla de carreras **lo inyecta** en el juego (`RacingGame.tiltService`), así que
+  el motor lee `tiltService.steering` en cada frame y llama a `Car.steerBy()`.
+
+### 4.2 nonies Obstáculos: uno cada vez y nunca empalmados
+
+El generador (`TrackGenerator`) ya no produce "filas": produce **elementos sueltos**.
+
+| Método | Qué hace |
+|---|---|
+| `nextObstacleLane()` | Elige el carril del próximo obstáculo, **distinto** del anterior |
+| `nextStarLane({forbiddenLane})` | Elige el carril de la próxima estrella, distinto del del obstáculo y de la estrella anterior |
+
+Y el juego (`RacingGame._updateSpawning`) los separa en el **tiempo**:
+
+| Constante | Valor | Significado |
+|---|---|---|
+| `obstacleSpacing` | 3,4 s | Un obstáculo cada 3,4 s (antes: filas cada 2,2 s con hasta 2 obstáculos) |
+| `starSpacing` | 2,2 s | Una estrella cada 2,2 s |
+| `minSeparation` | 1,4 s | **Una estrella nunca aparece pegada a un obstáculo** |
+
+- Con **un solo obstáculo** por vez, siempre quedan **dos carriles libres**: es
+  imposible quedarse atrapado.
+- Los tamaños se reduzcan (obstáculo del 72 % al 62 % del carril, estrella del 62 % al
+  50 %) para que además de no solaparse **se vean separados**.
+
+### 4.2 decies El HUD en vivo
+
+El HUD (`_RaceHud`) es un widget **aparte** con su **propio `Ticker`**:
+
+- Si se leyera la velocidad en el `build` de la pantalla, el HUD se quedaría
+  **congelado** en "0" (nada provoca un `setState` durante la carrera).
+- Con su propio ticker se repinta **solo la chapa del marcador** en cada frame, sin
+  reconstruir la pantalla entera (que contiene el `GameWidget` de Flame).
+- El ticker **se para** cuando la carrera está en pausa o terminada.
+
 ### 4.3 `Car`
 ```dart
 enum Lane { left, center, right }
@@ -377,11 +472,15 @@ class Car extends PositionComponent with CollisionCallbacks {
   void steerTo(Lane lane);   // buffer de 1 entrada si hay transición
   void steerLeft();
   void steerRight();
+  void steerBy(double normalized);  // el "volante": continuo, -1..1
   void stun([double seconds = 1]);
 }
 ```
-- La posición X se interpola en **220 ms** con `EaseOutCubic`.
-- El coche inclina ±12° al cambiar de carril y vuelve a 0° al terminar.
+- La posición X se interpola en **220 ms** con `EaseOutCubic` (cambio de carril).
+- Con el **volante** (`steerBy`) el coche se mueve de forma **continua** hacia el punto
+  pedido: el niño ve que responde al instante, sin saltos entre carriles.
+- El coche inclina ±12° al cambiar de carril y se inclina según la velocidad lateral
+  cuando se mueve libre.
 - Un choque aplica `stun(1 s)`: el mundo se detiene un segundo (nunca hay
   "game over") y el coche tiembla para que el impacto se entienda.
 
@@ -504,6 +603,11 @@ Toque (bote)
 ### 5.3 Flujo de carrera
 
 ```
+Girar el movil (giroscopio)
+  → TiltService integra el giro → TiltService.steering (-1..1)
+    → RacingGame.update(dt): car.steerBy(steering)
+      → el coche se desliza de forma continua por la carretera
+
 Mantener pulsado el acelerador
   → _PedalButton.onTapDown(true) → RacingScreen._setPedal(accelerating: true)
     → RacingGame.accelerating = true
@@ -517,15 +621,14 @@ Soltar el acelerador / pulsar el freno
       → update(dt): _speed -= RaceTiming.braking * dt  (o -= coasting * dt)
         → el coche rueda y frena solo
 
-Toque en pantalla (mitad izq/der) o flecha de dirección
-  → MultiTouchTapDetector.onTapDown / _SteerButton.onTap
-    → RacingGame.steerLeft() / steerRight()
-      → Car.steerTo(lane) → interpolación de 220 ms
-        → AudioService.playSfx(SfxKind.swoosh)
-
-Arrastrar el dedo
+Arrastrar el dedo (respaldo si no hay sensor)
   → PanDetector.onPanUpdate
-    → RacingGame._carDragX → el coche se mueve libre por la carretera
+    → RacingGame._carDragX → el coche sigue al dedo por la carretera
+
+Aparición de obstáculos y estrellas
+  → _updateSpawning(dt): distancia desde el último obstáculo / estrella
+    → si toca el obstáculo (3,4 s) → _spawnObstacle()  [un carril libre siempre]
+    → si toca la estrella (2,2 s) y ha pasado 1,4 s → _spawnStar()
 
 Colisión con estrella
   → Car.onCollisionStart → Collectible.collect()
@@ -655,6 +758,11 @@ en cualquier dispositivo y se serialice de forma compacta.
 | Decisión | Alternativa descartada | Motivo |
 |---|---|---|
 | `CustomPainter` propio para el lienzo | `flutter_painting_tools` | Abandonado, `sdk <3.0.0`, no compila con Dart 3.12; además no soporta relleno por región. |
+| **Girar el mundo con `RotatedBox`** para la vista horizontal | Reescribir el motor de carreras en coordenadas horizontales | El motor, los obstaculos, las estrellas, el scroll y las colisiones ya funcionan en vertical: girarlo es **una línea** y no toca la lógica de juego. |
+| **Giroscopio** para el volante | Acelerómetro | El giroscopio mide el giro alrededor de la normal de la pantalla (el gesto de "volante") y **no depende** de la orientación del móvil. |
+| Quitar "tocar la pantalla para girar" | Dejarlo | Cualquier toque (incluso la mano que sujeta el móvil) movía el coche solo. El volante por sensor no puede pasar por alto. |
+| Un **obstáculo** cada vez | Filas con 1 o 2 obstáculos | Con dos bloqueados y el tercero ocupado por una estrella, el niño se quedaba sin salida. |
+| **Un solo carril** bloqueado por obstáculo | Hasta dos | Siempre quedan dos carriles libres: nunca hay un muro infranqueable. |
 | Relleno por *scanline flood fill* sobre la lámina | Botón que rellena un rectángulo predefinido | El niño colorea formas reales, no cajas. El coste (~10-40 ms) se paga solo al tocar. |
 | Borrador que **parte** los trazos | Borrador con `BlendMode.clear` | `clear` borraría también la lámina o exigiría una capa aparte. Partir conserva el resto del dibujo. |
 | `provider` | Riverpod / Bloc | Estado mínimo (progreso del niño). `provider` es suficiente y sin boilerplate. |
@@ -676,10 +784,16 @@ en cualquier dispositivo y se serialice de forma compacta.
 
 | Nivel | Qué se prueba | Herramienta |
 |---|---|---|
-| **Unitario** | `Progress` (JSON), `ProgressService` (con `SharedPreferences.setMockInitialValues`), `ProgressProvider` (desbloqueos y progresión de niveles), `LevelCatalog` (12 niveles, ids únicos, ambientes únicos, pista válida), `TrackGenerator` (anti-bloqueo), `Car` (carriles, buffer, choque), `RaceTiming` (mínima de 60 s), `PageRaster` (flood fill) | `flutter_test` |
-| **Widget** | `MenuScreen`: 4 tarjetas ≥ 60 dp, navegación a pintura, mapa, taller y libro, sin desbordes. `LevelSelectScreen`: 12 tarjetas, candados, apertura del siguiente nivel, navegación. `SplashScreen`: título, arranque automático y salto con un toque. `RacingScreen`: juego a pantalla completa, ancla de la cámara, áreas táctiles, **controles visibles de dirección**, **acelerador mantenido** (sin pedal no acelera; con pedal sí), **garaje que devuelve el vehículo**, **HUD**, **parada del juego y de la música al salir**, pausa, panel de coches. `small_screen_test`: las pantallas sin desbordes en un móvil de 320 × 640. `screen_capture_test`: cada pantalla se dibuja sin excepciones y se exporta a PNG | `flutter_test` |
+| **Unitario** | `Progress` (JSON), `ProgressService` (con `SharedPreferences.setMockInitialValues`), `ProgressProvider` (desbloqueos y progresión de niveles), `LevelCatalog` (12 niveles, ids únicos, ambientes únicos, pista válida), `TrackGenerator` (un obstáculo por vez, nunca el mismo carril, la estrella en un carril libre), `Car` (carriles, buffer, choque, **volante**), `RaceTiming` (mínima de 60 s), `PageRaster` (flood fill), `TiltService` (neutro sin sensor, se para sin errores) | `flutter_test` |
+| **Widget** | `MenuScreen`: 4 tarjetas ≥ 60 dp, navegación a pintura, mapa, taller y libro, sin desbordes. `LevelSelectScreen`: 12 tarjetas, candados, apertura del siguiente nivel, navegación. `SplashScreen`: título, arranque automático y salto con un toque. `RacingScreen`: juego a pantalla completa, **el mundo está girado (pista horizontal)**, **el coche sale por la izquierda**, **el HUD se repinta en vivo**, **el acelerador mantenido**, **el volante mueve el coche**, **el garaje que devuelve el vehículo**, **parada del juego y de la música al salir**, pausa, panel de coches. `small_screen_test`: las pantallas sin desbordes (las carreras, en horizontal). `screen_capture_test`: cada pantalla se dibuja sin excepciones y se exporta a PNG | `flutter_test` |
 | **Integración** | `flutter analyze` + `flutter test` + `flutter build apk` | CI local |
 | **Assets** | Los WAV tienen señal real (pico y RMS dentro de rango) y los PNG se generan sin excepciones | `tool/asset_studio/test` |
+
+> **Los sensores se simulan en los tests.** `sensors_plus` habla con un canal de
+> plataforma que no existe en el entorno de pruebas: sin el stub de
+> `test/helpers/sensor_mock.dart` el test falla con `MissingPluginException`.
+> Además, la pantalla de carreras permite **inyectar** un `TiltService` falso, para
+> comprobar el volante sin hardware.
 
 Criterio: **0 fallos, 0 warnings de análisis**, y los tests deben poder
 ejecutarse **sin red**.

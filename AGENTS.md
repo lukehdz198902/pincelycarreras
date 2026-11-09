@@ -40,6 +40,7 @@ Estas reglas son **bloqueantes**. Ningún PR puede violarlas.
 - **flame_audio** `^2.12.2` → música y SFX (envuelve `audioplayers`).
 - **provider** `^6.1.5+1` → gestión de estado (`ChangeNotifier`).
 - **shared_preferences** `^2.5.6` → persistencia local.
+- **sensors_plus** `^7.1.1` → giroscopio (el "volante") y acelerómetro.
 - **flutter_lints** `^6.0.0` → linting.
 
 ### Paquetes prohibidos / descartados
@@ -49,6 +50,17 @@ Estas reglas son **bloqueantes**. Ningún PR puede violarlas.
   lo que además permite un trazo grueso optimizado para manos de niños y un *bote de pintura*
   con relleno por flood-fill.
 - ❌ Paquetes con red, publicidad, analítica o compras.
+
+### Sensores
+
+- **`sensors_plus`** es la **única** dependencia de hardware: da el giroscopio (el
+  "volante") y, como respaldo, el acelerómetro.
+- **Nunca** se asume que el sensor existe: el juego debe ser jugable sin él
+  (arrastrando el coche con el dedo).
+- Los sensores **no** se piden en `main()`: se empiezan al entrar en la pantalla de
+  carreras y se paran al salir (mismo patrón que la música y el motor).
+- En los tests hay que **simular los canales de plataforma**
+  (`test/helpers/sensor_mock.dart`) o el test falla con `MissingPluginException`.
 
 ---
 
@@ -130,7 +142,13 @@ La comunicación va por `services/`, por `providers/` y por callbacks.
   velocidad, hay que cambiar **también** el control en pantalla: sin botón, el juego se
   queda parado y parece "lento".
 - **Nada se acumula sin límite**: obstáculos, coleccionables y banderines tienen **topes**
-  (`≤ 24 / ≤ 20 / ≤ 6`). Una escena que crece hace que el juego se ralentice con el uso.
+  (`≤ 12 / ≤ 12 / ≤ 6`). Una escena que crece hace que el juego se ralentice con el uso.
+- **El mundo del juego está girado 90°**: la pantalla de carreras usa un `RotatedBox` para
+  que la pista se vea **en horizontal**. Por dentro `size.x` es la ALTURA de la pantalla y
+  `size.y` su ANCHURA. La interfaz (barras, pedales, HUD) queda **fuera** del
+  `RotatedBox`, para que se lea derecha.
+- **La dirección es por sensor** (`TiltService`): no se gira el coche tocando la
+  pantalla, porque cualquier toque (incluso la mano que sujeta el móvil) lo movía solo.
 
 ### Ciclo de vida (obligatorio)
 

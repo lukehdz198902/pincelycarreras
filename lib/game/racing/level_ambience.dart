@@ -26,6 +26,15 @@ class LevelAmbience extends Component {
   Vector2 _size = Vector2.zero();
   bool _spawned = false;
 
+  /// Eje de repulsion de las particulas (a lo largo de la carretera).
+  ///
+  /// El mundo del juego esta girado 90 grados, asi que el eje "horizontal"
+  /// de las particulas es el eje **largo** de la pista.
+  double get _spreadExtent => _size.y;
+
+  /// Eje de caida de las particulas (hacia abajo de la pantalla).
+  double get _fallExtent => _size.x;
+
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
@@ -101,6 +110,13 @@ class LevelAmbience extends Component {
 
   @override
   void render(Canvas canvas) {
+    // El mundo del juego esta girado 90 grados para que la pista se vea en
+    // horizontal. Aqui se deshace ese giro solo para las particulas, de
+    // modo que la nieve cae **hacia abajo** de la pantalla y no hacia el
+    // lado.
+    canvas.save();
+    canvas.translate(0, _size.y);
+    canvas.rotate(-math.pi / 2);
     for (final particle in _particles) {
       canvas.save();
       canvas.translate(particle.x, particle.y);
@@ -108,6 +124,7 @@ class LevelAmbience extends Component {
       _drawParticle(canvas, particle);
       canvas.restore();
     }
+    canvas.restore();
   }
 
   void _drawParticle(Canvas canvas, _Particle particle) {
@@ -325,9 +342,9 @@ class LevelAmbience extends Component {
 
   _Particle _makeParticle({required bool initial}) {
     final particle = _Particle()
-      ..x = _random.nextDouble() * _size.x
+      ..x = _random.nextDouble() * _spreadExtent
       ..y = initial
-          ? _random.nextDouble() * _size.y
+          ? _random.nextDouble() * _fallExtent
           : -40 - _random.nextDouble() * 100
       ..phase = _random.nextDouble() * math.pi * 2
       ..life = _random.nextDouble() * 4
@@ -457,18 +474,16 @@ class LevelAmbience extends Component {
 
   void _recycle(_Particle particle) {
     const margin = 70.0;
-    final width = _size.x;
-    final height = _size.y;
-    if (particle.y > height + margin) {
+    if (particle.y > _fallExtent + margin) {
       particle.y = -margin;
-      particle.x = _random.nextDouble() * width;
+      particle.x = _random.nextDouble() * _spreadExtent;
     } else if (particle.y < -margin) {
-      particle.y = height + margin;
-      particle.x = _random.nextDouble() * width;
+      particle.y = _fallExtent + margin;
+      particle.x = _random.nextDouble() * _spreadExtent;
     }
     if (particle.x < -margin) {
-      particle.x = width + margin;
-    } else if (particle.x > width + margin) {
+      particle.x = _spreadExtent + margin;
+    } else if (particle.x > _spreadExtent + margin) {
       particle.x = -margin;
     }
   }

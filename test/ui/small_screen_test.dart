@@ -13,6 +13,8 @@ import 'package:pincel_y_carreras/ui/screens/sticker_book_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/sensor_mock.dart';
+
 /// Comprueba que las pantallas no se desbordan en moviles pequenos.
 ///
 /// Un movil de 320 dp de ancho es el caso limite habitual, asi que se
@@ -22,10 +24,15 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    mockSensorChannels();
   });
 
-  Future<void> pumpSmall(WidgetTester tester, Widget screen) async {
-    tester.view.physicalSize = const Size(320, 640);
+  Future<void> pumpWithSize(
+    WidgetTester tester,
+    Widget screen,
+    Size size,
+  ) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -44,6 +51,15 @@ void main() {
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 120));
     }
+  }
+
+  Future<void> pumpSmall(WidgetTester tester, Widget screen) async {
+    await pumpWithSize(tester, screen, const Size(320, 640));
+  }
+
+  /// Las carreras se juegan **acostadas**: se prueban en horizontal.
+  Future<void> pumpSmallLandscape(WidgetTester tester, Widget screen) async {
+    await pumpWithSize(tester, screen, const Size(640, 320));
   }
 
   group('Pantallas en un movil pequeno (320 x 640)', () {
@@ -79,7 +95,8 @@ void main() {
     });
 
     testWidgets('la pantalla de carreras no se desborda', (tester) async {
-      await pumpSmall(tester, const RacingScreen());
+      // Las carreras van en horizontal: se comprueba en ese formato.
+      await pumpSmallLandscape(tester, const RacingScreen());
       expect(tester.takeException(), isNull);
     });
 

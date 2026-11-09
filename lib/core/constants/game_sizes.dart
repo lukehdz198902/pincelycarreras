@@ -23,6 +23,14 @@ class GameSizes {
   /// Ancho de la carretera en pixeles logicos (maximo).
   static const double maxRoadWidth = 420;
 
+  /// Fraccion de la ALTURA de la pantalla que ocupa la carretera.
+  ///
+  /// El mundo del juego esta girado 90 grados (la pantalla esta en
+  /// `RotatedBox`), asi que `size.x` del juego es la altura de la pantalla.
+  /// La carretera ocupa solo una parte: el resto es decorado, para que se
+  /// vea que el coche corre por un sitio y no por una pared.
+  static const double roadWidthFraction = 0.58;
+
   /// Ancho de un carril.
   static const double laneWidth = 120;
 

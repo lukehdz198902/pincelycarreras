@@ -6,6 +6,7 @@ import 'package:pincel_y_carreras/data/models/level_catalog.dart';
 import 'package:pincel_y_carreras/data/providers/progress_provider.dart';
 import 'package:pincel_y_carreras/data/services/audio_service.dart';
 import 'package:pincel_y_carreras/data/services/progress_service.dart';
+import 'package:pincel_y_carreras/data/services/tilt_service.dart';
 import 'package:pincel_y_carreras/game/racing/racing_game.dart';
 import 'package:pincel_y_carreras/ui/screens/garage_screen.dart';
 import 'package:pincel_y_carreras/ui/screens/racing_screen.dart';
@@ -14,6 +15,8 @@ import 'package:pincel_y_carreras/ui/widgets/star_counter.dart';
 import 'package:pincel_y_carreras/ui/widgets/thumbnails.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../helpers/sensor_mock.dart';
 
 /// Audio falso: cuenta las llamadas para comprobar el ciclo de vida.
 class _FakeAudioService extends AudioService {
@@ -35,16 +38,38 @@ class _FakeAudioService extends AudioService {
   Future<void> resumeBgm() async => resumeCalls++;
 }
 
+/// Volante falso: el test decide hacia donde gira el movil.
+class _FakeTiltService extends TiltService {
+  double value = 0;
+
+  @override
+  bool get isAvailable => true;
+
+  @override
+  double get steering => value;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  void stop() {}
+
+  @override
+  void update(double dt) {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    mockSensorChannels();
   });
 
   Future<_FakeAudioService> pumpRacing(
     WidgetTester tester, {
     String? levelId,
+    _FakeTiltService? tilt,
   }) async {
     final service = await ProgressService.create();
     final audio = _FakeAudioService();
@@ -57,7 +82,9 @@ void main() {
             create: (_) => ProgressProvider(service)..load(),
           ),
         ],
-        child: MaterialApp(home: RacingScreen(levelId: levelId)),
+        child: MaterialApp(
+          home: RacingScreen(levelId: levelId, tiltService: tilt),
+        ),
       ),
     );
     // Varios frames: el juego carga sus sprites de forma asincrona.
@@ -105,6 +132,30 @@ void main() {
       expect(rect.height, 600);
     });
 
+    testWidgets('la pista se ve en horizontal (el mundo esta girado)',
+        (tester) async {
+      await pumpRacing(tester);
+
+      final game = tester
+          .widget<GameWidget<RacingGame>>(find.byType(GameWidget<RacingGame>))
+          .game!;
+      await waitForGame(tester, game);
+
+      // La pantalla es 800 x 600 y el mundo del juego esta girado 90 grados:
+      // el juego ve 600 x 800 (el eje "x" es la ALTURA de la pantalla).
+      expect(game.size.x, 600);
+      expect(game.size.y, 800);
+
+      // La carretera ocupa una parte de la altura: el resto es decorado.
+      expect(game.roadWidth, lessThan(game.size.x));
+      expect(game.roadWidth, greaterThan(game.size.x * 0.4));
+
+      // El coche esta en el lado izquierdo de la pantalla (avanza a la
+      // derecha) y centrado en la carretera.
+      expect(game.carX, closeTo(game.size.x / 2, 2));
+      expect(game.carY, greaterThan(game.size.y * 0.7));
+    });
+
     testWidgets('el origen del mundo es la esquina superior izquierda',
         (tester) async {
       await pumpRacing(tester);
@@ -141,41 +192,34 @@ void main() {
       expect(thumbnail.height, greaterThanOrEqualTo(60));
     });
 
-    testWidgets('muestra controles visibles de izquierda y derecha',
+    testWidgets('muestra como dirigir: inclinar el movil, sin flechas',
         (tester) async {
       await pumpRacing(tester);
 
-      // El nino debe ver donde tocar: dos flechas grandes en pantalla.
-      expect(find.byIcon(Icons.chevron_left_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
-
-      final left = find.byKey(const ValueKey<String>('steer_left'));
-      final right = find.byKey(const ValueKey<String>('steer_right'));
-      expect(left, findsOneWidget);
-      expect(right, findsOneWidget);
-
-      final size = tester.getSize(right);
-      expect(size.width, greaterThanOrEqualTo(60));
-      expect(size.height, greaterThanOrEqualTo(60));
+      // El nino dirige inclinando el movil: no hay botones de flechas.
+      expect(find.byIcon(Icons.chevron_left_rounded), findsNothing);
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(find.text('Inclina'), findsOneWidget);
     });
 
-    testWidgets('pulsar la flecha izquierda mueve el coche de carril',
+    testWidgets('inclinar el movil mueve el coche por la carretera',
         (tester) async {
-      await pumpRacing(tester);
+      final tilt = _FakeTiltService();
+      await pumpRacing(tester, tilt: tilt);
 
       final game = tester
           .widget<GameWidget<RacingGame>>(find.byType(GameWidget<RacingGame>))
           .game!;
       await waitForGame(tester, game);
-      expect(game.isReady, isTrue);
 
-      final before = game.carLane;
+      final before = game.carX;
 
-      await tester.tap(find.byKey(const ValueKey<String>('steer_left')));
+      // El "volante": el nino inclina el movil y el coche se desplaza.
+      tilt.value = 1;
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(game.carLane, isNot(before));
+      expect(game.carX, greaterThan(before));
     });
 
     testWidgets('el boton de pausa muestra y oculta la pausa', (tester) async {
@@ -226,7 +270,9 @@ void main() {
       );
       await tester.pump();
       for (var i = 0; i < 5; i++) {
-        await gesture.moveBy(const Offset(20, 0));
+        // La pista esta en horizontal: el arrastre util es **vertical**
+        // (el eje que cruza la carretera).
+        await gesture.moveBy(const Offset(0, 20));
         await tester.pump(const Duration(milliseconds: 16));
       }
       await gesture.up();

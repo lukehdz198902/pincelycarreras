@@ -11,8 +11,9 @@ import 'obstacle.dart';
 
 /// El coche del nino.
 ///
-/// Se mueve **solo hacia adelante**: el unico control es cambiar de carril.
-/// No hay acelerador, ni freno, ni cronometro.
+/// Se mueve **libremente por la carretera**: el control principal es el
+/// **volante** (inclinacion del movil), que lo desplaza de forma continua;
+/// tambien se puede arrastrar con el dedo o cambiar de carril.
 class Car extends PositionComponent with CollisionCallbacks {
   /// Crea el coche.
   Car({
@@ -56,6 +57,8 @@ class Car extends PositionComponent with CollisionCallbacks {
   double _laneWidth = 120;
   double _minX = 0;
   double _maxX = 0;
+  double _centerX = 0;
+  double _halfRange = 0;
   double _bounce = 0;
   bool _free = false;
   double _freeTargetX = 0;
@@ -106,6 +109,20 @@ class Car extends PositionComponent with CollisionCallbacks {
     final margin = carWidth * 0.55;
     _minX = roadCenterX - width / 2 + margin;
     _maxX = roadCenterX + width / 2 - margin;
+    _halfRange = (_maxX - _minX) / 2;
+    _centerX = (_maxX + _minX) / 2;
+  }
+
+  /// Mueve el coche con el **volante** (inclinacion del movil).
+  ///
+  /// [normalized] va de `-1` (todo a la izquierda) a `+1` (todo a la
+  /// derecha). El coche se desplaza de forma continua, sin saltos: el nino
+  /// ve que responde al instante.
+  void steerBy(double normalized) {
+    final value = normalized.clamp(-1.0, 1.0);
+    _free = true;
+    _pendingLane = null;
+    _freeTargetX = _centerX + value * _halfRange;
   }
 
   /// Mueve el coche libremente (arrastrando el dedo).

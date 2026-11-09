@@ -1,95 +1,56 @@
 import 'dart:math' as math;
 
-/// Una fila generada de la pista.
+/// Genera el contenido de la pista con reglas **amables** para ninos.
 ///
-/// Nunca se bloquean los tres carriles: siempre queda al menos uno libre
-/// para que el nino nunca se quede atrapado.
-class TrackRow {
-  /// Crea una fila de pista.
-  const TrackRow({required this.obstacleLanes, this.starLane});
-
-  /// Carriles ocupados por obstaculos (indices 0..2).
-  final Set<int> obstacleLanes;
-
-  /// Carril con una estrella coleccionable (si lo hay).
-  final int? starLane;
-
-  /// `true` si esta fila no tiene obstaculos.
-  bool get isEmpty => obstacleLanes.isEmpty;
-}
-
-/// Genera filas de pista con reglas "amables" para ninos.
+/// Las reglas son deliberadamente conservadoras:
 ///
-/// Reglas:
-/// - nunca se bloquean los tres carriles a la vez;
-/// - dos filas consecutivas no bloquean exactamente los mismos carriles
-///   (obligan a mover el coche);
-/// - la estrella aparece en un carril libre, para premiar el movimiento.
+/// - **un solo obstaculo** por fila: siempre quedan dos carriles libres;
+/// - el obstaculo **nunca** aparece en el mismo carril que el anterior, asi
+///   que el nino siempre tiene que moverse un poco;
+/// - la estrella va a un carril distinto del ultimo obstaculo y de la ultima
+///   estrella, y ademas el juego la separa en el tiempo del obstaculo para
+///   que **nunca se empalmen**.
 class TrackGenerator {
   /// Crea un generador con una semilla (util para pruebas deterministas).
   TrackGenerator({int? seed}) : _random = math.Random(seed);
 
   final math.Random _random;
-  Set<int> _lastBlocked = const {};
-  int _rowsSinceObstacle = 0;
 
-  /// Genera la siguiente fila de la pista.
-  TrackRow next() {
-    final freeLane = _random.nextInt(3);
+  /// Ultimo carril con un obstaculo.
+  int? _lastObstacleLane;
 
-    // La mayoria de las filas bloquean **un solo** carril: siempre queda
-    // mucho espacio libre para esquivar. Solo de vez en cuando se bloquean
-    // dos (los obstaculos ya van bien espaciados).
-    final blockedCount = _random.nextDouble() < 0.25 ? 2 : 1;
-    final blocked = <int>{};
-    for (var lane = 0; lane < 3 && blocked.length < blockedCount; lane++) {
-      if (lane == freeLane) {
-        continue;
-      }
-      blocked.add(lane);
-    }
+  /// Ultimo carril con una estrella.
+  int? _lastStarLane;
 
-    // Nunca dos filas identicas seguidas.
-    if (_sameLanes(blocked, _lastBlocked) && _rowsSinceObstacle > 0) {
-      blocked.clear();
-      for (var lane = 0; lane < 3; lane++) {
-        if (lane != freeLane && !_sameLanes({lane}, _lastBlocked)) {
-          blocked.add(lane);
-          break;
-        }
-      }
-      if (blocked.isEmpty) {
-        blocked.add((freeLane + 1) % 3);
-      }
-    }
-
-    _lastBlocked = Set<int>.from(blocked);
-    _rowsSinceObstacle = blocked.isEmpty ? _rowsSinceObstacle + 1 : 0;
-
-    // La estrella va a un carril libre distinto del de la fila anterior.
-    int? starLane;
-    if (_random.nextDouble() < 0.55) {
-      final candidates = <int>[
-        for (var lane = 0; lane < 3; lane++)
-          if (!blocked.contains(lane)) lane,
-      ];
-      if (candidates.isNotEmpty) {
-        starLane = candidates[_random.nextInt(candidates.length)];
-      }
-    }
-
-    return TrackRow(obstacleLanes: blocked, starLane: starLane);
+  /// Elige el carril del proximo obstaculo.
+  ///
+  /// Nunca repite el carril del obstaculo anterior: el nino tiene que
+  /// apartarse en cada obstaculo.
+  int nextObstacleLane() {
+    final options = <int>[
+      for (var lane = 0; lane < 3; lane++)
+        if (lane != _lastObstacleLane) lane,
+    ];
+    final lane = options[_random.nextInt(options.length)];
+    _lastObstacleLane = lane;
+    return lane;
   }
 
-  static bool _sameLanes(Set<int> a, Set<int> b) {
-    if (a.length != b.length) {
-      return false;
+  /// Elige el carril de la proxima estrella.
+  ///
+  /// No puede ser el carril del [forbiddenLane] (el del ultimo obstaculo)
+  /// ni el de la ultima estrella.
+  int nextStarLane({int? forbiddenLane}) {
+    final options = <int>[
+      for (var lane = 0; lane < 3; lane++)
+        if (lane != forbiddenLane && lane != _lastStarLane) lane,
+    ];
+    if (options.isEmpty) {
+      // Caso imposible (3 carriles y 2 exclusiones), pero por seguridad.
+      return forbiddenLane ?? _lastStarLane ?? 1;
     }
-    for (final lane in a) {
-      if (!b.contains(lane)) {
-        return false;
-      }
-    }
-    return true;
+    final lane = options[_random.nextInt(options.length)];
+    _lastStarLane = lane;
+    return lane;
   }
 }

@@ -4,7 +4,7 @@ Este documento recoge **lo que se ha ejecutado de verdad**, no lo planificado.
 Cada casilla está marcada con la evidencia que la respalda.
 
 - **Entorno de verificación:** Windows 11 · Flutter 3.44.4 · Dart 3.12.2
-- **Última ejecución:** 06/11/2026 (ronda 7: acelerador mantenido, HUD, efectos y 12 vehículos)
+- **Última ejecución:** 08/11/2026 (ronda 8: vista horizontal, volante por sensor y pista sin obstáculos amontonados)
 - **Versión del juego:** 1.0.0+1
 
 ---
@@ -14,7 +14,7 @@ Cada casilla está marcada con la evidencia que la respalda.
 | # | Comprobación | Comando | Resultado |
 |---|---|---|---|
 | V1 | Análisis estático sin errores ni avisos | `flutter analyze` | ✅ **No issues found!** |
-| V2 | Suite de tests completa | `flutter test` | ✅ **122/122 · All tests passed!** |
+| V2 | Suite de tests completa | `flutter test` | ✅ **135/135 · All tests passed!** |
 | V3 | Compilación Android de depuración | `flutter build apk --debug` | ✅ APK generado en `build/app/outputs/flutter-apk/app-debug.apk` |
 | V4 | Los assets entran en el APK | inspección del APK | ✅ 75 PNG + 10 WAV empaquetados |
 | V5 | Iconos de la app en el APK | inspección del APK | ✅ `ic_launcher` (5 densidades) + `ic_launcher_round` + `ic_launcher_foreground` + `ic_launcher_monochrome` + `ic_launcher.xml` (adaptativo) + `launch_logo` |
@@ -26,21 +26,23 @@ Cada casilla está marcada con la evidencia que la respalda.
 
 | Fichero | Casos | Qué cubre |
 |---|---|---|
-| `test/game/car_test.dart` | 6 | Carril inicial, giro izquierda/derecha, límites de carril, búfer de un giro, aturdimiento de 1 s tras choque |
+| `test/game/car_test.dart` | 10 | Carril inicial, giro izquierda/derecha, límites de carril, búfer de un giro, aturdimiento de 1 s tras choque, **el volante mueve el coche de forma continua**, **nunca saca el coche de la carretera**, **el volante centrado devuelve el coche al centro** |
 | `test/game/flood_fill_test.dart` | 5 | Zona rellenable, relleno de la región interior, separación interior/exterior, no rellena el contorno, mismo tramo para el mismo punto |
-| `test/game/track_generator_test.dart` | 4 | Nunca bloquea los 3 carriles, la estrella no cae en un carril bloqueado, carriles en rango, determinismo con semilla |
+| `test/game/track_generator_test.dart` | 5 | **Un solo obstáculo por fila**, el obstáculo **nunca** repite carril, la estrella no cae en el carril del obstáculo ni en el de la estrella anterior, carriles en rango, determinismo con semilla |
+| `test/game/race_spacing_test.dart` | 3 | Los obstáculos están separados (≥ 3 s), las estrellas van más seguidas y **la separación mínima garantiza que no se empalmen** |
+| `test/game/race_timing_test.dart` | 5 | **La velocidad sube solo si el niño acelera**, la distancia crece con el tiempo acelerando siempre, la distancia de un tramo cubre el tiempo objetivo, **todos los mundos duran ≥ 1 minuto**, el tiempo de un tramo es el mismo en todos los tramos |
 | `test/models/progress_test.dart` | 4 | Estado inicial, `copyWith`, ida y vuelta por JSON, JSON vacío |
 | `test/models/levels_test.dart` | 20 | 12 mundos con ids únicos, ambientes únicos, pistas válidas, velocidad creciente, **duración ≥ 60 s**, encadenado del siguiente, desbloqueo progresivo, no completar un mundo bloqueado, no contar dos veces, persistencia, desbloqueo de vehículos con estrellas, **catálogo de 12 vehículos** (tipos, tamaños, assets) |
-| `test/game/race_timing_test.dart` | 5 | **La velocidad sube solo si el niño acelera**, la distancia crece con el tiempo acelerando siempre, la distancia de un tramo cubre el tiempo objetivo, **todos los mundos duran ≥ 1 minuto**, el tiempo de un tramo es el mismo en todos los tramos |
-| `test/ui/coloring_screen_test.dart` | 4 | Carga la lámina inicial, **al cambiar de lámina se dibuja la nueva y no queda en blanco** (regresión), el trazo empieza justo donde toca el niño, el relleno usa la lámina nueva |
 | `test/services/progress_service_test.dart` | 8 | Guardado/recuperación de progreso y de dibujos, borrado de dibujo, estrellas aditivas, desbloqueo de coches, no seleccionar un coche bloqueado, récord que solo mejora, colores base siempre disponibles |
+| `test/services/tilt_service_test.dart` | 4 | El volante queda **neutro sin sensor**, se centra, se puede parar sin errores y el reloj no rompe la dirección |
+| `test/ui/coloring_screen_test.dart` | 4 | Carga la lámina inicial, **al cambiar de lámina se dibuja la nueva y no queda en blanco** (regresión), el trazo empieza justo donde toca el niño, el relleno usa la lámina nueva |
 | `test/ui/menu_screen_test.dart` | 7 | **4 secciones** ≥ 60 dp, navegación a pintura / mapa de mundos / taller / pegatinas, sin desbordes en horizontal y en 320 dp |
 | `test/ui/level_select_screen_test.dart` | 8 | 12 tarjetas numeradas, 11 candados al empezar, apertura del siguiente mundo, mundo disponible abre carreras, mundo bloqueado **no** abre carreras, botón de vehículo abre el garaje, sin desbordes |
 | `test/ui/garage_screen_test.dart` | 6 | Los **12 vehículos** en pantalla, candados en los bloqueados, elegir un vehículo libre, **no** elegir uno bloqueado, con estrellas se desbloquean más vehículos, sin desbordes en 320 dp |
 | `test/ui/splash_screen_test.dart` | 4 | Título visible, arranque automático a los 2,4 s, salto con un toque, sin desbordes |
-| `test/ui/racing_screen_test.dart` | 18 | Arranque directo en juego, **juego a pantalla completa**, **origen del mundo en la esquina**, áreas táctiles, **controles visibles de dirección**, la flecha izquierda mueve el coche, **el acelerador se mantiene pulsado para avanzar**, **el HUD muestra la velocidad en vivo**, pausa, **el botón de vehículo abre el garaje**, **elegir un vehículo en el garaje se aplica al instante**, contador visible, pista y ambiente del mundo, **la carrera tiene final**, **al salir se detienen el juego y la música**, sin desbordes |
-| `test/ui/small_screen_test.dart` | 8 | Las 8 pantallas sin desbordes en un móvil de 320 × 640 |
-| `test/ui/screen_capture_test.dart` | 12 | Las 8 pantallas se dibujan sin excepciones y se exportan a PNG (tamaño normal y tamaño estrecho) |
+| `test/ui/racing_screen_test.dart` | 19 | Arranque directo en juego, juego a pantalla completa, **la pista se ve en horizontal (el mundo está girado 90°)**, el coche sale por la izquierda, origen del mundo en la esquina, barra superior táctil, **el aviso "Inclina" sustituye a las flechas**, **inclinar el móvil mueve el coche**, pausa, **el botón de vehículo abre el garaje**, **elegir un vehículo se aplica al instante**, **el acelerador se mantiene pulsado**, **el HUD muestra la velocidad en vivo**, contador visible, pista y ambiente del mundo, **la carrera tiene final**, **al salir se detienen el juego y la música**, sin desbordes |
+| `test/ui/small_screen_test.dart` | 8 | Las 8 pantallas sin desbordes (las carreras, en horizontal 640 × 320) |
+| `test/ui/screen_capture_test.dart` | 12 | Las pantallas se dibujan sin excepciones y se exportan a PNG (tamaño normal y tamaño estrecho) |
 
 ---
 
@@ -58,13 +60,13 @@ sirve como prueba de humo visual y como artefacto de revisión.
 | `menu.png` | Fondo crema con blobs en movimiento, **4 tarjetas grandes** con degradado (pintar / carreras / taller / pegatinas), contador de estrellas, botón de sonido y botón de ayuda |
 | `niveles.png` | Mapa con 12 tarjetas: número en círculo, pista de fondo, nombre y ambiente; candado en las bloqueadas y botón de play en la siguiente |
 | `pintura.png` | Lámina a tamaño completo, barra superior, barra de herramientas abajo con el pincel seleccionado y los 3 grosores |
-| `carreras.png` | El juego ocupa la pantalla completa, barra superior alineada, **flechas de dirección + pedal de acelerar y pedal de frenar**, **HUD de velocidad y progreso**, sin desbordes |
+| `carreras.png` | La pista en **horizontal** (800 x 400), el juego ocupa la pantalla completa, barra superior alineada, **pedal de acelerar y pedal de frenar**, **aviso "Inclina"**, **HUD de velocidad y progreso**, sin desbordes |
 | `taller.png` | Calcas, colores y personajes del vehículo |
 | `garaje.png` | Los 12 vehículos con candado en los bloqueados |
 | `pegatinas.png` | Rejilla de 10 pegatinas con candado en las bloqueadas |
 | `menu-320.png` | En móvil de 320 dp el título se encoge y el contador no se desborda; las 4 tarjetas siguen siendo grandes |
 | `pintura-320.png` | En móvil de 320 dp los grosores de pincel pasan a una segunda fila y nada se corta |
-| `carreras-320.png` | En móvil de 320 dp la barra superior compacta (insignia circular del nivel, miniaturas y contador) cabe entera y **las etiquetas de los pedales se encogen** (`FittedBox`) |
+| `carreras-320.png` | En horizontal de 640 x 320 la barra superior compacta (insignia circular del nivel, miniaturas y contador) cabe entera y **las etiquetas de los pedales se encogen** (`FittedBox`) |
 | `pegatinas-320.png` | La rejilla de pegatinas se adapta al ancho de 320 dp |
 
 > En los tests de widget las imágenes (`Image.asset`) **no se pintan** (limitación
@@ -135,6 +137,12 @@ Ejecutado con `flutter run -d web-server` y captura del canvas por JS.
 | B34 | La fila de pedales de las carreras se **desbordaba 40 px** en un móvil de 320 dp (la etiqueta "Acelerar" con la fuente de test, más ancha que la real) | 🟠 Alto | La etiqueta va en `SizedBox` + `FittedBox(scaleDown)`: **se encoge** en vez de desbordar, en cualquier pantalla | `small_screen_test.dart` + `racing_screen_test.dart` |
 | B35 | El menú seguía ofreciendo el modo "Subidas" y quedaban **código y assets muertos** (`climb_game.dart`, `climb_terrain.dart`, `climb_screen.dart`, `motor_loop.wav`, `BgmTrack.engine`, `meta.png`, `banderin.png`) | 🟡 Medio | Modo **eliminado por completo** (código, assets, rutas y audio) | `menu_screen_test.dart` (4 secciones) |
 | B36 | El **HUD se quedaba congelado**: la velocidad y el progreso se leían una sola vez al construir la pantalla y **nada los volvía a repintar**, así que el niño veía siempre "0" | 🟠 Alto | El HUD pasa a ser un widget aparte (`_RaceHud`) con **su propio `Ticker`**: solo se repinta la chapa del marcador en cada frame (no toda la pantalla, que contiene el `GameWidget` de Flame). El ticker **se para** en pausa y en el resumen | `racing_screen_test.dart` (`el HUD muestra la velocidad en vivo`) |
+| B37 | **Al acelerar el coche se iba solo de un lado a otro**: el juego giraba el coche con **cualquier toque** en la carretera (`onTapDown`), así que la mano que sujeta el móvil lo movía (casi siempre hacia la izquierda, porque el niño sujeta el móvil con la izquierda) | 🔴 Crítico | Se **quita** el control por toque: la dirección es ahora el **volante** (giroscopio) y, como respaldo, **arrastrar** el coche con el dedo. La pantalla ya no gira el coche al tocarla | `racing_screen_test.dart` (`muestra como dirigir: inclinar el movil, sin flechas`) + `car_test.dart` (volante) |
+| B38 | La pista era un **tropel de obstáculos**: filas cada 2,2 s con hasta **dos** obstáculos, y a veces con los **tres carriles** ocupados entre obstáculo y estrella | 🔴 Crítico | El generador ya no hace "filas": produce **un solo obstáculo** cada 3,4 s (siempre en un carril distinto al anterior) y **siempre quedan dos carriles libres** | `track_generator_test.dart` + `race_spacing_test.dart` |
+| B39 | Las **estrellas se empalmaban con los obstáculos** (estaban en la misma fila, en un carril contiguo, y el obstáculo ocupaba el 72 % del carril) | 🟠 Alto | La estrella solo aparece si ha pasado **1,4 s** desde el último obstáculo (`minSeparation`) y además se coloca en un carril distinto. Los tamaños se reducen (obstáculo 62 %, estrella 50 %) | `race_spacing_test.dart` + `track_generator_test.dart` |
+| B40 | Las carreras se jugaban en **vertical**, con la pista bajando, y el niño tenía que tocar la pantalla para girar | 🟠 Alto | La pantalla de carreras pide **orientación horizontal** y gira el mundo con `RotatedBox`: la pista queda **horizontal** y el niño dirige **inclinando el móvil** como un volante (giroscopio) | `racing_screen_test.dart` (`la pista se ve en horizontal`) + `tilt_service_test.dart` |
+| B41 | `sensors_plus` habla con un canal de plataforma que **no existe en los tests**: el `MissingPluginException` hacia fallar toda la suite | 🟡 Medio | `test/helpers/sensor_mock.dart` simula los canales de los sensores; además `RacingScreen` permite **inyectar** un `TiltService` falso para probar el volante sin hardware | `sensor_mock.dart` + `racing_screen_test.dart` |
+| B42 | Las partículas del ambiente (nieve, pétalos) se desplazaban **hacia el lado** en la vista horizontal | 🟡 Medio | `LevelAmbience` dibuja en un espacio local girado (`translate` + `rotate(-π/2)`): la nieve vuelve a caer **hacia abajo** | Revisión del código + captura |
 
 ---
 
@@ -183,13 +191,16 @@ Ejecutado con `flutter run -d web-server` y captura del canvas por JS.
 | A10 | Funciona en vertical y horizontal sin overflow | ✅ | Tests de desbordes en horizontal + `LayoutBuilder` con menú vertical/horizontal |
 | A11 | Al salir de una carrera se detienen el motor del juego y la música | ✅ | `racing_screen_test.dart` (`al salir se detienen el juego y la musica`) |
 | A12 | Hay 12 mundos con ambientes distintos y desbloqueo progresivo | ✅ | `levels_test.dart` + `level_select_screen_test.dart` |
-| A13 | Las flechas de dirección **y los pedales** están visibles en la pantalla de carreras | ✅ | `racing_screen_test.dart` (`muestra controles visibles...`) |
+| A13 | Los **pedales** están **visibles** en la pantalla de carreras | ✅ | `racing_screen_test.dart` (`accelerate` / `brake`) |
 | A14 | Cada carrera dura **al menos un minuto** y **tiene final** (meta) | ✅ | `race_timing_test.dart` + `racing_screen_test.dart` (`la carrera tiene final`) |
 | A15 | El garaje ofrece coches, moto, camión, bus, tractor, furgoneta, policía y ambulancia | ✅ | `garage_screen_test.dart` + `levels_test.dart` |
 | A16 | El coche **solo avanza si el niño mantiene pulsado el acelerador** | ✅ | `racing_screen_test.dart` (`el acelerador se mantiene pulsado para avanzar`) |
 | A17 | Cambiar de vehículo en el garaje se aplica **al instante** | ✅ | `racing_screen_test.dart` (`elegir un vehiculo en el garaje se aplica al instante`) |
-| A18 | El juego **no se ralentiza** con el tiempo de uso | ✅ | Topes de seguridad en `racing_game.dart` (≤ 24 / ≤ 20 / ≤ 6) |
-| A19 | El HUD muestra **velocidad y progreso** | ✅ | `racing_screen_test.dart` + captura `carreras.png` |
+| A18 | El juego **no se ralentiza** con el tiempo de uso | ✅ | Topes de seguridad en `racing_game.dart` (≤ 12 / ≤ 12 / ≤ 6) |
+| A19 | El HUD muestra **velocidad y progreso** en vivo | ✅ | `racing_screen_test.dart` (`el HUD muestra la velocidad en vivo`) |
+| A20 | La pista se ve **en horizontal** y la pantalla **acostada** | ✅ | `racing_screen_test.dart` (`la pista se ve en horizontal`) |
+| A21 | El niño dirige **inclinando el móvil** (volante), sin tocar la pantalla | ✅ | `racing_screen_test.dart` (`inclinar el movil mueve el coche`) + `car_test.dart` |
+| A22 | Hay **un solo obstáculo** cada 3,4 s y **nunca** se empalma con una estrella | ✅ | `race_spacing_test.dart` + `track_generator_test.dart` |
 
 ---
 
@@ -199,8 +210,12 @@ Estos puntos **no se han podido verificar** en este entorno. Quedan marcados
 como pendientes, no como hechos.
 
 - [ ] **Dispositivo Android real**: instalar el APK, comprobar rendimiento real
-      (frame rate) con el DEVICE de gama baja de referencia y **que la carrera no se
-      ralentice tras varios minutos** (topes de seguridad).
+      (frame rate) con el DEVICE de gama baja de referencia, **que la carrera no se
+      ralentice tras varios minutos** (topes de seguridad) y **que la vista en
+      horizontal se vea bien** (pista horizontal, coche a la izquierda).
+- [ ] **El volante por giroscopio**: comprobar en un móvil real que **girar el móvil
+      mueve el coche** y que el gesto se siente igual en horizontal izquierdo y
+      derecho. Es la única comprobación que **no** se puede hacer sin hardware.
 - [ ] **iOS**: `flutter build ios` requiere **macOS con Xcode**. El proyecto
       `ios/` existe y está generado, pero no se ha compilado ni probado.
 - [ ] **Audio en dispositivo real**: los WAV se han validado por forma de onda,
@@ -209,9 +224,9 @@ como pendientes, no como hechos.
 - [ ] **Vibración háptica** (`HapticFeedback`): solo verificable en hardware.
 - [ ] **Modo avión real**: confirmar que el juego arranca y suena sin red.
 - [ ] **Revisión visual en navegador real** de la ronda actual (splash, menú con
-      4 tarjetas, mapa de niveles, **pedales de acelerar/frenar**, **HUD** y láminas
-      nuevas). Los tests de widget cubren el layout, pero el navegador del entorno
-      de verificación dejó de renderizar (§2.2).
+      4 tarjetas, mapa de niveles, **pista en horizontal**, **volante** y láminas
+      nuevas). Los tests de widget cubren el layout, pero el navegador del entorno de
+      verificación dejó de renderizar (§2.2) y en la ronda 8 se desconectó.
 - [ ] **Revisión visual de los 9 PNG de las láminas en un móvil** (el color real del
       relleno por región y el grosor del contorno se ven mejor en dispositivo).
 - [ ] **Revisión visual de los 12 vehículos en un móvil** (el conductor y la calca

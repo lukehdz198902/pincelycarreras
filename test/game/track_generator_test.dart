@@ -3,40 +3,43 @@ import 'package:pincel_y_carreras/game/racing/track_generator.dart';
 
 void main() {
   group('TrackGenerator', () {
-    test('nunca bloquea los tres carriles a la vez', () {
+    test('solo hay un obstaculo por fila: siempre quedan dos carriles libres',
+        () {
       final generator = TrackGenerator(seed: 42);
       for (var i = 0; i < 2000; i++) {
-        final row = generator.next();
-        expect(
-          row.obstacleLanes.length,
-          lessThan(3),
-          reason: 'siempre debe quedar un carril libre',
-        );
+        final lane = generator.nextObstacleLane();
+        expect(lane, inInclusiveRange(0, 2));
       }
     });
 
-    test('la estrella nunca aparece en un carril bloqueado', () {
+    test('el obstaculo nunca aparece en el mismo carril que el anterior', () {
       final generator = TrackGenerator(seed: 7);
+      int? previous;
       for (var i = 0; i < 2000; i++) {
-        final row = generator.next();
-        final starLane = row.starLane;
-        if (starLane != null) {
-          expect(row.obstacleLanes.contains(starLane), isFalse);
-        }
+        final lane = generator.nextObstacleLane();
+        expect(lane, isNot(previous));
+        previous = lane;
       }
     });
 
-    test('los carriles bloqueados siempre estan en rango', () {
+    test('la estrella no aparece en el carril del ultimo obstaculo', () {
+      final generator = TrackGenerator(seed: 13);
+      int? obstacleLane;
+      for (var i = 0; i < 2000; i++) {
+        final lane = generator.nextStarLane(forbiddenLane: obstacleLane);
+        expect(lane, inInclusiveRange(0, 2));
+        expect(lane, isNot(obstacleLane));
+        obstacleLane = generator.nextObstacleLane();
+      }
+    });
+
+    test('la estrella no aparece en el mismo carril que la anterior', () {
       final generator = TrackGenerator(seed: 99);
-      for (var i = 0; i < 500; i++) {
-        final row = generator.next();
-        for (final lane in row.obstacleLanes) {
-          expect(lane, inInclusiveRange(0, 2));
-        }
-        final starLane = row.starLane;
-        if (starLane != null) {
-          expect(starLane, inInclusiveRange(0, 2));
-        }
+      int? previous;
+      for (var i = 0; i < 2000; i++) {
+        final lane = generator.nextStarLane();
+        expect(lane, isNot(previous));
+        previous = lane;
       }
     });
 
@@ -44,10 +47,8 @@ void main() {
       final a = TrackGenerator(seed: 5);
       final b = TrackGenerator(seed: 5);
       for (var i = 0; i < 50; i++) {
-        final rowA = a.next();
-        final rowB = b.next();
-        expect(rowA.obstacleLanes, rowB.obstacleLanes);
-        expect(rowA.starLane, rowB.starLane);
+        expect(a.nextObstacleLane(), b.nextObstacleLane());
+        expect(a.nextStarLane(), b.nextStarLane());
       }
     });
   });

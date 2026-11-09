@@ -92,5 +92,53 @@ void main() {
       car.update(0.6);
       expect(car.isStunned, isFalse);
     });
+
+    test('el volante mueve el coche de forma continua', () {
+      final car = buildCar();
+
+      // Volante a la derecha: el coche se va hacia el borde derecho.
+      car.steerBy(1);
+      for (var i = 0; i < 30; i++) {
+        car.update(0.016);
+      }
+      expect(car.x, greaterThan(200));
+    });
+
+    test('el volante a la izquierda mueve el coche al otro lado', () {
+      final car = buildCar();
+
+      car.steerBy(-1);
+      for (var i = 0; i < 30; i++) {
+        car.update(0.016);
+      }
+      expect(car.x, lessThan(200));
+    });
+
+    test('el volante nunca saca el coche de la carretera', () {
+      final car = buildCar();
+
+      car.steerBy(10);
+      for (var i = 0; i < 60; i++) {
+        car.update(0.016);
+      }
+      // El limite lateral incluye el margen del coche.
+      expect(car.x, lessThanOrEqualTo(200 + 180));
+    });
+
+    test('el volante centrado devuelve el coche al centro', () {
+      final car = buildCar();
+
+      car.steerBy(1);
+      for (var i = 0; i < 30; i++) {
+        car.update(0.016);
+      }
+      expect(car.x, greaterThan(200));
+
+      car.steerBy(0);
+      for (var i = 0; i < 60; i++) {
+        car.update(0.016);
+      }
+      expect(car.x, closeTo(200, 2));
+    });
   });
 }

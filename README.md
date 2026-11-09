@@ -3,7 +3,7 @@
 Juego móvil 2D infantil (3-8 años) con **Flutter + Flame**. Dos modos de juego:
 
 - **Estudio de pintura** — dibuja y colorea 9 láminas con pincel, bote de pintura (relleno por región) y borrador.
-- **Carreras** — conducción top-down en 3 carriles con **acelerador que el niño mantiene pulsado**, **12 mundos**, **12 vehículos** (coches, moto, camión, bus, tractor, furgoneta, policía y ambulancia), flechas visibles en pantalla, HUD de velocidad y progreso y ambiente animado propio en cada mundo.
+- **Carreras** — conducción top-down **en horizontal** (el móvil se sujeta en horizontal, como un volante) con **12 mundos**, **12 vehículos** (coches, moto, camión, bus, tractor, furgoneta, policía y ambulancia), dirección **inclinando el móvil**, HUD de velocidad y progreso y ambiente animado propio en cada mundo.
 
 Además: un **taller** para pintar calcas y elegir pasajero, un **garaje** con 12 vehículos y un libro de pegatinas.
 
@@ -128,23 +128,31 @@ llama, corazón o número), su **color** (12 colores, se tiñe en el momento) y 
 
 ### Carreras
 
+Las carreras se juegan **acostadas**: el móvil en horizontal y la pista corriendo de
+izquierda a derecha, como en un juego de carreras de verdad.
+
 | Acción | Resultado |
 |---|---|
+| **Girar el móvil** como un volante | El coche se va hacia ese lado de la carretera |
 | **Mantener pulsado 🟢 Acelerar** | El coche acelera hasta la velocidad máxima del mundo |
 | **Mantener pulsado 🔴 Frenar** | El coche frena con fuerza hasta pararse |
 | **Soltar el acelerador** | El coche rueda y frena solo |
-| **Flecha ⟵ / ⟶ en pantalla** | Cambia de carril (el niño ve dónde tocar) |
-| **Arrastrar el dedo** | Mueve el coche de forma continua por toda la carretera |
-| **Toque en la mitad izquierda / derecha** | También cambia de carril |
+| **Arrastrar el dedo** | Mueve el coche (respaldo si el móvil no tiene sensor) |
 | **Botón de vehículo** (arriba izquierda) | Abre el **garaje**; el cambio se aplica **al instante** |
 | **Botón de pausa** | Pausa la partida (toca la pantalla para seguir) |
 
-- **El niño marca el ritmo**: la velocidad depende de si mantiene el acelerador pulsado.
-  Suena un "vroom" (`motor.wav`) al arrancar desde parado.
+- **El niño dirige con el móvil**, no tocando la pantalla: se usa el giroscopio (el giro
+  alrededor de la pantalla), que funciona igual en horizontal izquierdo y derecho. Si el
+  móvil no tiene giroscopio se usa el acelerómetro, y si no hay sensor se puede arrastrar
+  el coche con el dedo.
+- **El niño marca el ritmo** con el acelerador: la velocidad depende de si lo mantiene
+  pulsado. Suena un "vroom" (`motor.wav`) al arrancar desde parado.
 - **HUD** arriba: número de velocidad, barra verde de velocidad y barra violeta de
   **progreso hacia la meta**.
 - **Efectos**: polvo en las ruedas, **líneas de viento** que crecen con la velocidad y
   **chispas** al recoger una estrella.
+- **Pista fácil de verdad**: **un solo obstáculo** cada 3,4 s (siempre deja dos carriles
+  libres), estrellas cada 2,2 s y **nunca** se empalman con un obstáculo.
 - El vehículo **nunca se reinicia** al chocar: queda aturdido 1 s y continúa.
 - Las **estrellas** se recogen al pasar por encima y suman al contador.
 - Cada mundo **tiene final**: la meta cierra la carrera y aparece el resumen con las
@@ -152,7 +160,7 @@ llama, corazón o número), su **color** (12 colores, se tiñe en el momento) y 
 - Cada carrera dura **más de un minuto** (65–78 s según el mundo; si choca o no acelera,
   más).
 - El juego **no se ralentiza** con el tiempo de uso: los obstáculos, las estrellas y los
-  banderines tienen topes (≤ 24, ≤ 20 y ≤ 6 vivos a la vez).
+  banderines tienen topes.
 - La música de fondo cambia automáticamente según el modo y **se calla** al salir.
 
 ### Libro de pegatinas (trofeos)
@@ -227,7 +235,7 @@ Game-PincelyCarreras/
 │   ├── data/
 │   │   ├── models/             # Objetos de dominio inmutables (Progress, LevelSpec, VehicleSpec, ...)
 │   │   ├── providers/         # ProgressProvider (ChangeNotifier)
-│   │   └── services/          # ProgressService, AudioService, AssetService
+│   │   └── services/          # ProgressService, AudioService, TiltService, AssetService
 │   ├── game/                  # Lógica de juego (SIN material.dart)
 │   │   ├── coloring/          # Lienzo, pincel, relleno por región (flood fill)
 │   │   └── racing/            # RacingGame, RaceTiming, Car, LevelAmbience, VehicleTrail, ...
@@ -306,23 +314,26 @@ Cobertura actual:
 
 | Fichero | Qué cubre |
 |---|---|
-| `test/game/car_test.dart` | Cambio de carril, colisiones, aturdimiento |
+| `test/game/car_test.dart` | Cambio de carril, colisiones, aturdimiento, **volante** |
 | `test/game/flood_fill_test.dart` | Relleno por región, regiones ya pintadas |
-| `test/game/track_generator_test.dart` | Generación de obstáculos y estrellas |
+| `test/game/track_generator_test.dart` | **Un obstáculo por vez**, carriles y estrellas bien repartidos |
 | `test/game/race_timing_test.dart` | Modelo del acelerador y **cada mundo dura ≥ 1 minuto** |
+| `test/game/race_spacing_test.dart` | **Separación** de obstáculos y estrellas (nunca se empalman) |
 | `test/models/progress_test.dart` | Cálculo de estrellas, récords y desbloqueos |
 | `test/models/levels_test.dart` | 12 mundos, 12 vehículos y progresión |
 | `test/services/progress_service_test.dart` | Persistencia en `shared_preferences` |
+| `test/services/tilt_service_test.dart` | El **volante** se degrada sin sensor |
 | `test/ui/menu_screen_test.dart` | Navegación del menú (4 secciones) |
 | `test/ui/level_select_screen_test.dart` | Mapa de mundos y desbloqueos |
 | `test/ui/garage_screen_test.dart` | Garaje: vehículos, candados y selección |
 | `test/ui/studio_screen_test.dart` | Taller: calcas, colores y personajes |
 | `test/ui/coloring_screen_test.dart` | **Cambio de lámina** (regresión del lienzo en blanco) |
 | `test/ui/splash_screen_test.dart` | Pantalla de inicio y salto manual |
-| `test/ui/racing_screen_test.dart` | Carreras: layout, cámara, flechas, **acelerador mantenido**, **HUD en vivo**, garaje, final, parada al salir |
-| `test/ui/small_screen_test.dart` | Las pantallas sin desbordes en un móvil de 320 dp |
+| `test/ui/racing_screen_test.dart` | Carreras: layout, **pista horizontal**, **volante**, acelerador, HUD en vivo, garaje, final, parada al salir |
+| `test/ui/small_screen_test.dart` | Las pantallas sin desbordes (las carreras, en horizontal) |
 | `test/ui/screen_capture_test.dart` | Captura PNG de cada pantalla a `build/screenshots/` |
 | `test/helpers/painting_fixture.dart` | Fixtures compartidos |
+| `test/helpers/sensor_mock.dart` | Simula los canales de los sensores |
 
 La checklist completa de verificación está en [`docs/TEST_CHECKLIST.md`](docs/TEST_CHECKLIST.md).
 

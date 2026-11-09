@@ -17,6 +17,8 @@ import 'package:pincel_y_carreras/ui/screens/sticker_book_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/sensor_mock.dart';
+
 /// Captura las cuatro pantallas del juego en `build/screenshots/`.
 ///
 /// No compara contra goldens (eso seria fragil entre maquinas): solo
@@ -27,6 +29,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    mockSensorChannels();
   });
 
   Future<void> pumpScreen(
@@ -60,6 +63,22 @@ void main() {
   /// Igual que [pumpScreen] pero con el tamano de un movil estrecho.
   Future<void> pumpNarrow(WidgetTester tester, Widget screen) async {
     tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await pumpScreen(tester, screen);
+  }
+
+  /// Las carreras se juegan **acostadas**: se capturan en horizontal.
+  Future<void> pumpLandscape(WidgetTester tester, Widget screen) async {
+    tester.view.physicalSize = const Size(800, 400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await pumpScreen(tester, screen);
+  }
+
+  /// Horizontal en un movil pequeno (el caso limite).
+  Future<void> pumpLandscapeSmall(WidgetTester tester, Widget screen) async {
+    tester.view.physicalSize = const Size(640, 320);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await pumpScreen(tester, screen);
@@ -125,7 +144,7 @@ void main() {
 
     testWidgets('la pantalla de carreras se dibuja sin errores',
         (tester) async {
-      await pumpScreen(tester, const RacingScreen());
+      await pumpLandscape(tester, const RacingScreen());
       expect(tester.takeException(), isNull);
       await capture(tester, 'carreras');
     });
@@ -152,7 +171,7 @@ void main() {
 
     testWidgets('la pantalla de carreras se dibuja sin errores',
         (tester) async {
-      await pumpNarrow(tester, const RacingScreen());
+      await pumpLandscapeSmall(tester, const RacingScreen());
       expect(tester.takeException(), isNull);
       await capture(tester, 'carreras-320');
     });
